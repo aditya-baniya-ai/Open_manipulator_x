@@ -121,6 +121,19 @@ Check nothing is left with `ros2 node list` (it should print nothing).
 
 **Fix:** hold the arm and turn the 12 V off. Move the arm by hand so it stands straight up with the base facing forward. Keep holding it while you turn the 12 V back on, then start again. Check with `ros2 topic echo /joint_states --once`: joint1, joint2 and joint3 should all be close to 0.
 
+## The arm (and RViz) keeps shaking
+
+**Cause:** two programs are controlling the arm at once: for example a leftover simulation plus the real arm (their joint angles mix, so RViz flickers and the real arm gets jumpy commands), or a leftover MoveIt Servo from `servo.launch.py` that keeps sending its own "hold here" commands.
+
+**Fix:** hold the real arm, stop everything, check nothing is left, then start just one thing:
+
+```bash
+pkill -f ros2; pkill -f rviz2; pkill -f servo_node; pkill -f ros2_control_node; pkill -f gui.py; pkill -f gestures.py
+ps aux | grep -E "ros2|rviz|servo|control_node|gestures|gui.py" | grep -v grep
+```
+
+The second command should print nothing. `launch/gestures.sh` and the controls now refuse to start when this happens, and say why.
+
 ## A servo ignores a target near 0° or 360°
 
 **Symptom:** in the base swing test, the base started at 348°, so `start + 90` went past 360 and the servo rejected it.

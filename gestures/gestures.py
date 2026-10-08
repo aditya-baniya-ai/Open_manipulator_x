@@ -256,6 +256,24 @@ def connect(node):
     catch_up(node)
     node.home_base = node.base
 
+    # Two arms (e.g. a leftover simulation plus the real arm) mix their joint angles
+    # and the arm shakes, so don't move anything while more than one is running
+    arms = node.count_publishers("/joint_states")
+    if arms > 1:
+        print(f"\n{arms} arm programs are running at once (real and/or simulated), so the")
+        print("arm won't be moved: their angles would mix and the arm would shake.")
+        print("Stop them all (hold the real arm first), then start just one:")
+        print("  pkill -f ros2; pkill -f rviz2; pkill -f servo_node; pkill -f ros2_control_node\n")
+        return False
+    # Our own joint buttons are one sender; any other (like a leftover MoveIt Servo)
+    # keeps sending its own "hold here" commands and the arm shakes
+    senders = node.count_publishers("/arm_controller/joint_trajectory")
+    if senders > 1:
+        print("\nSomething else (probably MoveIt Servo from servo.launch.py) is also sending")
+        print("commands to the arm, so it won't be moved: the arm would shake.")
+        print("Stop it first:  pkill -f servo_node\n")
+        return False
+
     problems = []
     for label, joint, (low, high) in zip(JOINT_LABELS, JOINTS, LIMITS):
         angle = node.joints[joint]

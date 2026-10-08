@@ -30,6 +30,15 @@ for arg in "$@"; do
   esac
 done
 
+# Two arm programs at once (e.g. a leftover simulation) fight each other and the
+# arm shakes, so refuse to start a second one
+if ros2 node list 2>/dev/null | grep -q "^/controller_manager$"; then
+  echo "An arm (real or simulated) is already running. Stop it first, for example:"
+  echo '  pkill -f ros2; pkill -f rviz2; pkill -f servo_node; pkill -f ros2_control_node'
+  echo "If it's the real arm, hold it first: it may go limp."
+  exit 1
+fi
+
 if [ "$SIM" = true ]; then
   echo "Starting the simulated arm (RViz will open) ..."
   ros2 launch open_manipulator_x_bringup base.launch.py use_sim:=false \
