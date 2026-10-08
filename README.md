@@ -241,15 +241,19 @@ ros2 launch open_manipulator_x_bringup hardware.launch.py port_name:=/dev/ttyACM
 
 Leave this running. The arm won't move yet, but its joints will hold position. When you see `Configured and activated arm_controller`, it's ready.
 
-### Option A: Gestures (Terminal 2)
+### Option A: Gestures (one command, starts the arm too)
+
+Instead of Terminal 1 above, this starts the arm in the background and the gesture menu in the same terminal:
 
 ```bash
-python3 ~/Documents/Open_manipulator_x/gestures/gestures.py
+~/Documents/Open_manipulator_x/launch/gestures.sh
 ```
+
+(If the arm is already running in Terminal 1, just run `python3 ~/Documents/Open_manipulator_x/gestures/gestures.py` instead.)
 
 Press a key (no Enter needed):
 
-| Key | Gesture |
+| Key | Does |
 |---|---|
 | `w` | wave |
 | `n` | nod (yes) |
@@ -257,9 +261,14 @@ Press a key (no Enter needed):
 | `b` | bow |
 | `l` | look around |
 | `h` | go to the home pose |
-| `q` | quit |
+| `1` / `2` | turn the base |
+| `3` / `4` | move the shoulder |
+| `5` / `6` | move the elbow |
+| `7` / `8` | tilt the wrist |
+| `p` `k` `x` | record your own move (see [Make your own gesture](#make-your-own-gesture)) |
+| `q` | quit (also stops the arm if `gestures.sh` started it) |
 
-Moves you've saved yourself also show up in the menu, with the key you gave them. To record one, see [Make your own gesture](#make-your-own-gesture).
+Hold a number key to keep a joint moving. Moves you've saved yourself also show up in the menu, with the key you gave them.
 
 ### Option B: Move each joint with the keyboard (Terminals 2 and 3)
 
@@ -400,54 +409,45 @@ ros2 topic echo /joint_states --once
 
 ### Stop the robot
 
-1. Quit the gestures (`q`) or teleop (`ESC`), and press Ctrl+C in any other terminals except Terminal 1.
+1. Quit the gestures (`q`) or teleop (`ESC`), and press Ctrl+C in any other terminals except Terminal 1. If you started with `gestures.sh`, hold the arm before pressing `q`: that stops the arm too.
 2. **Hold the arm**, then press Ctrl+C in Terminal 1. The arm goes limp.
 3. Turn off the 12 V power.
 
 ### Simulation (no arm needed)
 
-A virtual arm in RViz (the 3D viewer) that uses the same controller as the real one, so `gestures.py` works on it unchanged. Use it to try new moves safely. Don't run it at the same time as the real-arm launch.
+A virtual arm in RViz (the 3D viewer) that uses the same controller as the real one, so everything works on it unchanged. Use it to try new moves safely. Don't run it at the same time as the real arm.
 
-Terminal 1:
+Simulated arm + gesture menu, in one command:
+
+```bash
+~/Documents/Open_manipulator_x/launch/gestures.sh --sim
+```
+
+Or just the simulated arm, to use with the other programs:
 
 ```bash
 ros2 launch open_manipulator_x_bringup base.launch.py use_sim:=false use_fake_hardware:=true fake_sensor_commands:=true start_rviz:=true
-```
-
-Terminal 2:
-
-```bash
-python3 ~/Documents/Open_manipulator_x/gestures/gestures.py
 ```
 
 (ROBOTIS's own `fake.launch.py` refuses to run on the Jetson; see [troubleshooting](docs/troubleshooting.md#fakelaunchpy-says-can-not-launch-fake-robot-in-raspberry-pi).)
 
 ### Make your own gesture
 
-Pose the arm, save each pose, then replay them. Do this in the simulation first.
+Pose the arm, save each pose, then replay them. Do this in the simulation first. Everything happens in one terminal:
 
-1. Start the simulation (Terminal 1, above).
-2. Terminal 2, keyboard control:
+1. Start the simulated arm and the gesture menu:
    ```bash
-   ros2 launch open_manipulator_x_moveit_config servo.launch.py
+   ~/Documents/Open_manipulator_x/launch/gestures.sh --sim
    ```
-3. Terminal 3:
-   ```bash
-   ros2 run open_manipulator_x_teleop open_manipulator_x_teleop
-   ```
-4. Terminal 4:
-   ```bash
-   python3 ~/Documents/Open_manipulator_x/gestures/gestures.py
-   ```
-5. Press `h` in Terminal 4 to go home.
-6. Move the arm with the keys in Terminal 3, then press `p` in Terminal 4 to add that pose. Repeat for each pose in your move.
-7. Press `k` in Terminal 4 to keep (save) the move. It asks two things; type each and press Enter:
+2. Press `h` to go home.
+3. Move the arm with the number keys (`1`–`8`), then press `p` to add that pose. Repeat for each pose in your move.
+4. Press `k` to keep (save) the move. It asks two things; type each and press Enter:
    ```
    Name for this move: hello dance
    Key to play it (one letter): m
    Saved 'hello dance'. Press m to play it.
    ```
-8. Press your key, and watch it in RViz. When it looks right, try it on the real arm.
+5. Press your key, and watch it in RViz. When it looks right, press `q`, start the real arm with `~/Documents/Open_manipulator_x/launch/gestures.sh`, and press your key.
 
 | Key | While recording |
 |---|---|
@@ -504,6 +504,7 @@ voice/
   listen.py            voice commands: say "wave", "bow", ... and the arm does it
 launch/
   greeter.launch.py    starts the whole greeter robot with one command
+  gestures.sh          starts the arm (real or --sim) and the gesture menu together
 dependencies.repos     list of ROBOTIS code to download (used in Step 5)
 ```
 

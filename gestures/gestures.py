@@ -9,7 +9,10 @@ Then press a key:
     b  bow         l  look around  h  go home
     q  quit
 
-Record your own move (move the arm with keyboard teleop between poses):
+Move each joint a little (hold the key to keep moving):
+    1/2  base     3/4  shoulder     5/6  elbow     7/8  wrist
+
+Record your own move (move the joints between poses):
     p  add the current pose to the move
     k  keep the move: type a name and a key to play it with
     x  throw away the poses recorded so far
@@ -71,6 +74,18 @@ GESTURES = {
 }
 BUILT_IN = set(GESTURES)
 RECORD_KEYS = {"p", "k", "x", "q"}
+
+# Keys that nudge one joint: key -> (joint index, direction)
+JOG_KEYS = {
+    "1": (0, -1), "2": (0, 1),   # base
+    "3": (1, -1), "4": (1, 1),   # shoulder
+    "5": (2, -1), "6": (2, 1),   # elbow
+    "7": (3, -1), "8": (3, 1),   # wrist
+}
+JOG_STEP = 0.05   # radians per key press, about 3 degrees
+JOG_TIME = 0.2    # seconds for each nudge
+# Safe range for each joint, in radians
+LIMITS = [(-BASE_LIMIT, BASE_LIMIT), (-1.5, 1.5), (-1.5, 1.4), (-1.7, 1.9)]
 SAVED_FILE = Path(__file__).with_name("my_gestures.json")
 
 
@@ -81,6 +96,7 @@ class Gesturer(Node):
         self.joints = {}       # latest angle of every joint, by name
         self.home_base = None  # where the base faced at the last home pose
         self.recording = []    # poses added with p, not saved yet
+        self.target = None     # where the number keys are moving the joints to
         self.create_subscription(JointState, "/joint_states", self.on_joint_states, 10)
         self.client = ActionClient(
             self, FollowJointTrajectory, "/arm_controller/follow_joint_trajectory"
@@ -159,8 +175,8 @@ def save_move(node):
     name = input("Name for this move: ").strip() or "my move"
     while True:
         key = input("Key to play it (one letter): ").strip().lower()
-        if len(key) != 1 or not key.isalnum():
-            print("Please type one letter or number.")
+        if len(key) != 1 or not key.isalpha():
+            print("Please type one letter.")
         elif key in BUILT_IN or key in RECORD_KEYS:
             print(f"'{key}' is already used. Try another.")
         else:
@@ -174,9 +190,24 @@ def save_move(node):
     print(f"Saved '{name}'. Press {key} to play it.")
 
 
+def jog(node, joint, direction):
+    """Nudge one joint a little, without waiting for it to finish."""
+    catch_up(node)
+    if node.target is None:
+        node.target = [node.joints[j] for j in JOINTS]
+    low, high = LIMITS[joint]
+    node.target[joint] = min(high, max(low, node.target[joint] + direction * JOG_STEP))
+
+    goal = FollowJointTrajectory.Goal()
+    goal.trajectory.joint_names = JOINTS
+    goal.trajectory.points = [point(list(node.target), JOG_TIME)]
+    rclpy.spin_until_future_complete(node, node.client.send_goal_async(goal))
+
+
 def run_gesture(node, moves):
     catch_up(node)
     node.home_base = node.base
+    node.target = None  # number keys start again from wherever the gesture ends
 
     goal = FollowJointTrajectory.Goal()
     goal.trajectory.joint_names = JOINTS
@@ -208,6 +239,7 @@ def print_menu():
     for key, (name, _) in GESTURES.items():
         print(f"  {key}  {name}")
     print("  q  quit")
+    print("Move joints:   1/2 base, 3/4 shoulder, 5/6 elbow, 7/8 wrist")
     print("Record a move: p add pose, k keep (save), x start over")
 
 
@@ -231,6 +263,9 @@ def main():
             key = read_key()
             if key == "q":
                 break
+            if key in JOG_KEYS:
+                jog(node, *JOG_KEYS[key])
+                continue
             if key == "p":
                 record_pose(node)
                 continue
