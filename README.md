@@ -15,7 +15,8 @@ A table robot built from a ROBOTIS OpenMANIPULATOR-X arm and an NVIDIA Jetson Or
 | Wave gesture in ROS 2 | ✅ working |
 | More gestures (nod, shake, bow, look around) on key press | ✅ working |
 | Record your own moves in simulation, play them on the real arm | ✅ working |
-| Camera, voice, picking | ⏳ planned |
+| Camera picture in ROS 2 (Logitech BRIO) | ✅ working |
+| Person detection, voice, picking | ⏳ planned |
 
 ## What you need
 
@@ -131,7 +132,23 @@ Plug the OpenCR's USB into the Jetson (unplug and replug it if it was already in
 ls /dev/ttyACM*
 ```
 
-It should print `/dev/ttyACM0`. Setup is done.
+It should print `/dev/ttyACM0`.
+
+### Step 8. Install the camera software
+
+Plug the Logitech BRIO camera into the Jetson, then:
+
+```bash
+sudo apt install -y v4l-utils ros-humble-usb-cam ros-humble-rqt-image-view
+```
+
+Check the camera is found:
+
+```bash
+v4l2-ctl --list-devices
+```
+
+It should list `Logitech BRIO` with `/dev/video0` first. That's the color picture (`/dev/video2` is its infrared camera). Setup is done.
 
 ---
 
@@ -192,6 +209,20 @@ ros2 run open_manipulator_x_teleop open_manipulator_x_teleop
 | `4` / `r` | joint 4 (wrist) |
 | `o` / `p` | open / close the gripper |
 | `ESC` | quit |
+
+### Camera
+
+Start the camera (its own terminal, leave it running):
+
+```bash
+ros2 run usb_cam usb_cam_node_exe --ros-args -p video_device:=/dev/video0 -p image_width:=640 -p image_height:=480 -p pixel_format:=mjpeg2rgb -p framerate:=30.0
+```
+
+See the picture (another terminal), then pick `/image_raw` from the dropdown at the top left:
+
+```bash
+ros2 run rqt_image_view rqt_image_view
+```
 
 ### Check the joint angles (any terminal)
 
