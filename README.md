@@ -209,7 +209,7 @@ A virtual arm in RViz (the 3D viewer) that uses the same controller as the real 
 Terminal 1:
 
 ```bash
-ros2 launch open_manipulator_x_bringup base.launch.py use_fake_hardware:=true fake_sensor_commands:=true start_rviz:=true
+ros2 launch open_manipulator_x_bringup base.launch.py use_sim:=false use_fake_hardware:=true fake_sensor_commands:=true start_rviz:=true
 ```
 
 Terminal 2:

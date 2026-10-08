@@ -57,10 +57,10 @@ rosdep install --from-paths src --ignore-src -y -r --skip-keys "gazebo_ros gazeb
 
 **Cause:** ROBOTIS's `fake.launch.py` decides it's on a Raspberry Pi if the file `/sys/firmware/devicetree/base/model` exists. The Jetson has that file too, so the launch quits even though simulation works fine.
 
-**Fix:** call `base.launch.py` directly with the same settings `fake.launch.py` would pass:
+**Fix:** call `base.launch.py` directly. Include `use_sim:=false`: it defaults to `true` (Gazebo), and then the control program never starts and the spawners wait forever with `waiting for service /controller_manager/list_controllers`.
 
 ```bash
-ros2 launch open_manipulator_x_bringup base.launch.py use_fake_hardware:=true fake_sensor_commands:=true start_rviz:=true
+ros2 launch open_manipulator_x_bringup base.launch.py use_sim:=false use_fake_hardware:=true fake_sensor_commands:=true start_rviz:=true
 ```
 
 ## A servo ignores a target near 0° or 360°
