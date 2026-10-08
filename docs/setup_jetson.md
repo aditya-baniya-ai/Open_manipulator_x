@@ -89,23 +89,39 @@ echo "source ~/colcon_ws/install/setup.bash" >> ~/.bashrc
 source ~/.bashrc
 ```
 
-Then install the ROBOTIS udev rules (`create_udev_rules`, from the open_manipulator packages) so the OpenCR port gets the correct permissions and low-latency setting. TODO: record the exact command once it's run.
+Check `~/.bashrc` first and skip the first line if it's already there.
+
+Then install the ROBOTIS udev rules, which set the OpenCR port's permissions and low-latency mode. It asks for your password:
+
+```bash
+ros2 run open_manipulator_x_bringup create_udev_rules
+```
+
+Unplug and replug the OpenCR's USB cable afterwards.
 
 ## 6. Launch the arm
 
-Put the arm in its start pose by hand first, then:
+Put the arm in its start pose by hand, and keep your hands clear and the power switch within reach. Then:
 
 ```bash
 ros2 launch open_manipulator_x_bringup hardware.launch.py port_name:=/dev/ttyACM0
 ```
 
+Other launch files in the same package: `fake.launch.py` runs a pretend arm with no hardware (good for testing code safely), and `gazebo.launch.py` is for simulation (not available on the Jetson).
+
 ## 7. Test
 
+With the launch running, in a second terminal:
+
 ```bash
-ros2 topic echo /joint_states
+ros2 topic echo /joint_states --once
 ```
 
-Then try keyboard teleop. TODO: record the exact teleop command.
+Then drive the arm with the keyboard:
+
+```bash
+ros2 run open_manipulator_x_teleop open_manipulator_x_teleop
+```
 
 ## 8. First gesture
 
