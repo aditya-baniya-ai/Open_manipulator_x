@@ -5,6 +5,7 @@
 #   ~/Documents/Open_manipulator_x/launch/gestures.sh --sim         simulated arm in RViz
 #   ~/Documents/Open_manipulator_x/launch/gestures.sh --gui         buttons in a window
 #   ~/Documents/Open_manipulator_x/launch/gestures.sh --sim --gui   both
+#   ~/Documents/Open_manipulator_x/launch/gestures.sh --rviz        real arm, also shown live in RViz
 #
 # The arm runs in the background (its messages go to a log file). The controls let
 # you play gestures, move each joint, open/close the gripper and record your own moves.
@@ -18,12 +19,14 @@ set -m
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG="/tmp/omx_arm.log"
 SIM=false
+RVIZ=false
 CONTROLS="gestures.py"
 for arg in "$@"; do
   case "$arg" in
     --sim) SIM=true ;;
     --gui) CONTROLS="gui.py" ;;
-    *) echo "Unknown option: $arg (use --sim and/or --gui)"; exit 1 ;;
+    --rviz) RVIZ=true ;;
+    *) echo "Unknown option: $arg (use --sim, --rviz and/or --gui)"; exit 1 ;;
   esac
 done
 
@@ -33,7 +36,8 @@ if [ "$SIM" = true ]; then
     use_fake_hardware:=true fake_sensor_commands:=true start_rviz:=true > "$LOG" 2>&1 &
 else
   echo "Starting the real arm ..."
-  ros2 launch open_manipulator_x_bringup hardware.launch.py port_name:=/dev/ttyACM0 > "$LOG" 2>&1 &
+  ros2 launch open_manipulator_x_bringup hardware.launch.py port_name:=/dev/ttyACM0 \
+    start_rviz:="$RVIZ" > "$LOG" 2>&1 &
 fi
 ARM=$!
 

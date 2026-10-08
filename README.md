@@ -285,7 +285,7 @@ Then start the arm and the window together:
 ~/Documents/Open_manipulator_x/launch/gestures.sh --gui
 ```
 
-Add `--sim` to use the simulated arm (`gestures.sh --sim --gui`). Hold a joint's `−` / `+` button to keep it moving. The window stops responding while a gesture plays, so gestures can't overlap. The Quit button also stops the arm.
+Add `--sim` to use the simulated arm (`gestures.sh --sim --gui`), or `--rviz` to also see the real arm move live in RViz (`gestures.sh --rviz --gui`). Hold a joint's `−` / `+` button to keep it moving. The window stops responding while a gesture plays, so gestures can't overlap. The Quit button also stops the arm.
 
 ### Option B: Move each joint with the keyboard (Terminals 2 and 3)
 
@@ -439,6 +439,14 @@ Simulated arm + gesture menu, in one command:
 ```bash
 ~/Documents/Open_manipulator_x/launch/gestures.sh --sim
 ```
+
+You can't run the simulated and the real arm at the same time (they'd fight over the same controller names). But you can watch the **real** arm in RViz: the 3D model follows the real servo angles live.
+
+```bash
+~/Documents/Open_manipulator_x/launch/gestures.sh --rviz
+```
+
+(Or without the controls: `ros2 launch open_manipulator_x_bringup hardware.launch.py port_name:=/dev/ttyACM0 start_rviz:=true`.)
 
 Or just the simulated arm, to use with the other programs:
 
