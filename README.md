@@ -293,6 +293,35 @@ ros2 topic echo /person_detected
 ros2 topic echo /detections
 ```
 
+### Greet people automatically
+
+The robot waves when someone appears in front of the camera. Run each in its own terminal:
+
+1. The arm (or the simulation):
+   ```bash
+   ros2 launch open_manipulator_x_bringup hardware.launch.py port_name:=/dev/ttyACM0
+   ```
+2. The camera:
+   ```bash
+   ros2 run usb_cam usb_cam_node_exe --ros-args -p video_device:=/dev/video0 -p image_width:=640 -p image_height:=480 -p pixel_format:=mjpeg2rgb -p framerate:=30.0
+   ```
+3. Detection:
+   ```bash
+   python3 ~/Documents/Open_manipulator_x/perception/detect.py
+   ```
+4. The greeter:
+   ```bash
+   python3 ~/Documents/Open_manipulator_x/gestures/greet.py
+   ```
+
+A person has to be in view for 1 second before it greets. It greets each person once: it won't greet again until 30 seconds have passed and nobody has been in view for 3 seconds. Options:
+
+- `--gesture b` greets with a different gesture: any key from `gestures.py`, including moves you saved yourself.
+- `--cooldown 60` sets the seconds between greetings.
+- `--see-time 2` sets how long someone must be in view first.
+
+Press Ctrl+C to stop.
+
 ### Check the joint angles (any terminal)
 
 ```bash
@@ -398,6 +427,7 @@ firmware/
 gestures/
   gestures.py          press a key to wave, nod, shake, bow or look around,
                        or record and save your own moves (my_gestures.json)
+  greet.py             waves automatically when the camera sees a person
 perception/
   detect.py            live object detection from the camera (YOLO / YOLO-World)
 dependencies.repos     list of ROBOTIS code to download (used in Step 5)
