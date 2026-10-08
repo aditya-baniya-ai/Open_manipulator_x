@@ -16,7 +16,9 @@ A table robot built from a ROBOTIS OpenMANIPULATOR-X arm and an NVIDIA Jetson Or
 | More gestures (nod, shake, bow, look around) on key press | ✅ working |
 | Record your own moves in simulation, play them on the real arm | ✅ working |
 | Camera picture in ROS 2 (Logitech BRIO) | ✅ working |
-| Person detection, voice, picking | ⏳ planned |
+| YOLO + YOLO-World on the Jetson GPU | ✅ installed, tested on a photo |
+| Live person detection from the camera | ⏳ next |
+| Voice, picking | ⏳ planned |
 
 ## What you need
 
@@ -148,7 +150,47 @@ Check the camera is found:
 v4l2-ctl --list-devices
 ```
 
-It should list `Logitech BRIO` with `/dev/video0` first. That's the color picture (`/dev/video2` is its infrared camera). Setup is done.
+It should list `Logitech BRIO` with `/dev/video0` first. That's the color picture (`/dev/video2` is its infrared camera).
+
+### Step 9. Install YOLO and YOLO-World (object detection)
+
+YOLO needs PyTorch built for the Jetson's GPU. A normal `pip install torch` won't use the GPU. These packages are for **JetPack 6** with Python 3.10; check yours with `cat /etc/nv_tegra_release` (R36 = JetPack 6).
+
+```bash
+sudo apt update && sudo apt install -y python3-pip && pip3 install -U pip
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
+```
+
+PyTorch and torchvision for the Jetson:
+
+```bash
+pip3 install https://github.com/ultralytics/assets/releases/download/v0.0.0/torch-2.10.0-cp310-cp310-linux_aarch64.whl
+pip3 install https://github.com/ultralytics/assets/releases/download/v0.0.0/torchvision-0.25.0-cp310-cp310-linux_aarch64.whl
+```
+
+cuDSS, a library this PyTorch needs (without it, `import torch` fails with `libcudss.so.0`):
+
+```bash
+cd ~ && wget https://developer.download.nvidia.com/compute/cudss/0.7.1/local_installers/cudss-local-tegra-repo-ubuntu2204-0.7.1_0.7.1-1_arm64.deb
+sudo dpkg -i cudss-local-tegra-repo-ubuntu2204-0.7.1_0.7.1-1_arm64.deb
+sudo cp /var/cudss-local-tegra-repo-ubuntu2204-0.7.1/cudss-*-keyring.gpg /usr/share/keyrings/
+sudo apt-get update && sudo apt-get -y install cudss
+```
+
+YOLO, plus CLIP for YOLO-World. Keep the version limits: ROS 2 Humble needs NumPy 1.x, and newer OpenCV would pull in NumPy 2.
+
+```bash
+pip3 install ultralytics "numpy<2" "opencv-python<4.12"
+pip3 install git+https://github.com/ultralytics/CLIP.git
+```
+
+Check it all works. It should print `2.10.0 True` and a NumPy version starting with `1.`:
+
+```bash
+python3 -c "import ultralytics, torch, numpy; print(ultralytics.__version__, torch.__version__, torch.cuda.is_available(), numpy.__version__)"
+```
+
+Setup is done.
 
 ---
 

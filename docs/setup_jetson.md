@@ -6,7 +6,7 @@ The commands are in the [README](../README.md). This file explains why each step
 
 - Board: NVIDIA Jetson Orin Nano
 - OS: Ubuntu 22.04.5 (so ROS 2 **Humble**)
-- JetPack version: TODO (`cat /etc/nv_tegra_release`)
+- JetPack: 6.2 (L4T R36.4.7, CUDA 12.6, Python 3.10)
 - Install type: native (no Docker), to avoid USB, GPU, audio and display passthrough problems
 
 ## Progress
