@@ -91,6 +91,20 @@ print('seconds:', round(len(a) / w.getframerate(), 1), ' loudest:', int(np.abs(a
 
 A loudest value above about 1000 means it picked up your voice. Near 0 means silence (muted or wrong device).
 
+## The simulation or arm keeps running after closing the controls
+
+**Symptom:** after Ctrl+C (or closing the controls) started with `launch/gestures.sh`, RViz or the arm launch is still running.
+
+**Cause:** older versions of `gestures.sh` didn't stop the whole arm launch, and the button window ignored Ctrl+C. Both are fixed; run `git pull`.
+
+**Fix for anything still running now:**
+
+```bash
+pkill -f "ros2 launch"; pkill -f rviz2; pkill -f ros2_control_node
+```
+
+Check nothing is left with `ros2 node list` (it should print nothing).
+
 ## A servo ignores a target near 0° or 360°
 
 **Symptom:** in the base swing test, the base started at 348°, so `start + 90` went past 360 and the servo rejected it.

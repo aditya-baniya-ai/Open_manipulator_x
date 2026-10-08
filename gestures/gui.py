@@ -8,6 +8,7 @@ Or start the arm and the window together:
     ../launch/gestures.sh --gui          (add --sim for the simulated arm)
 """
 
+import signal
 import tkinter as tk
 
 import rclpy
@@ -148,13 +149,13 @@ def main():
 
     root = tk.Tk()
     App(root, node)
-    try:
-        root.mainloop()
-    except KeyboardInterrupt:
-        pass
+    # Ctrl+C in the terminal closes the window (otherwise Tkinter swallows it)
+    signal.signal(signal.SIGINT, lambda *_: root.after(0, root.destroy))
+    root.mainloop()
 
     node.destroy_node()
-    rclpy.shutdown()
+    if rclpy.ok():
+        rclpy.shutdown()
 
 
 if __name__ == "__main__":
