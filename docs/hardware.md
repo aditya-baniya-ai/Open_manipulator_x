@@ -25,6 +25,16 @@ DYNAMIXEL servos on one daisy-chained TTL cable, 1 Mbps, Protocol 2.0.
 
 180° on the servo (2048 steps) is the center and equals 0 rad in ROS.
 
+## Mounting direction
+
+Mount the arm so that with the **base servo at 0°** (the middle of its range) the arm faces your work area. The base can only turn about ±180° from there, so if "forward" sits near ±180° the arm is stuck at an end stop on one side.
+
+To check: start the arm, run `ros2 topic echo /joint_states --once`, and look at `joint1` while the arm faces forward. It should be close to 0. If it's close to ±3.14 instead, the arm is mounted backwards: turn off the 12 V, unscrew the base bracket from the plate, turn the **whole** arm 180° (hold it by the bottom servo so the servo itself doesn't turn), and screw it back down.
+
+## Power off = the arm slumps
+
+With the 12 V off (or torque off), the arm can't hold itself up and folds under its own weight, often past the shoulder and elbow limits. Before starting the arm again, hold it so it stands roughly straight up, and keep holding it while you turn the 12 V on. All the programs in this repo check this at startup and refuse to move the arm if a joint is out of its safe range.
+
 ## Wiring
 
 - Keep the board's power switch OFF while connecting cables.

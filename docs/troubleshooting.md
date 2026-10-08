@@ -113,6 +113,14 @@ Check nothing is left with `ros2 node list` (it should print nothing).
 
 **Fix:** hold the arm, then turn off the 12 V power switch on the OpenCR. The joints go free. Turn it back on before the next launch.
 
+## "The arm is outside its safe range, so it won't be moved"
+
+**Symptom:** `gestures.py`, `gui.py`, `greet.py` or `listen.py` stops at startup with this message, naming a joint. (Before this check existed: the angles in the button window looked strange, like shoulder +107° and elbow -107°, and the buttons didn't move the arm.)
+
+**Cause:** with the power off, the arm slumped under its own weight, past the joint limits. Or the base is at its end stop (about ±180°) because the arm is mounted backwards; see [hardware.md](hardware.md#mounting-direction).
+
+**Fix:** hold the arm and turn the 12 V off. Move the arm by hand so it stands straight up with the base facing forward. Keep holding it while you turn the 12 V back on, then start again. Check with `ros2 topic echo /joint_states --once`: joint1, joint2 and joint3 should all be close to 0.
+
 ## A servo ignores a target near 0° or 360°
 
 **Symptom:** in the base swing test, the base started at 348°, so `start + 90` went past 360 and the servo rejected it.

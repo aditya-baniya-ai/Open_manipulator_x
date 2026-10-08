@@ -26,6 +26,7 @@ shake and look-around turn it relative to that direction and come back.
 """
 
 import json
+import math
 import sys
 import termios
 import tty
@@ -239,6 +240,39 @@ def jog(node, joint, direction):
     node.jog_pub.publish(msg)
 
 
+JOINT_LABELS = ["Base", "Shoulder", "Elbow", "Wrist"]
+
+
+def connect(node):
+    """Wait for the arm, then check every joint is in its safe range.
+
+    Returns True when it's safe to move. If the arm slumped while the power was off
+    (or was turned too far by hand), says which joint is out and how to fix it.
+    """
+    print("Waiting for the arm ...")
+    while rclpy.ok() and not all(j in node.joints for j in JOINTS):
+        rclpy.spin_once(node, timeout_sec=0.1)
+    node.client.wait_for_server()
+    catch_up(node)
+    node.home_base = node.base
+
+    problems = []
+    for label, joint, (low, high) in zip(JOINT_LABELS, JOINTS, LIMITS):
+        angle = node.joints[joint]
+        if not low <= angle <= high:
+            problems.append(f"  {label} is at {math.degrees(angle):+.0f}°, "
+                            f"safe range is {math.degrees(low):+.0f}° to {math.degrees(high):+.0f}°")
+    if problems:
+        print("\nThe arm is outside its safe range, so it won't be moved:")
+        print("\n".join(problems))
+        print("\nTo fix it: hold the arm and turn the 12 V off. Move the arm by hand so it")
+        print("stands straight up with the base facing forward. Keep holding it while you")
+        print("turn the 12 V back on, then start again.\n")
+        return False
+    print("Arm ready.")
+    return True
+
+
 def run_gesture(node, moves):
     catch_up(node)
     node.home_base = node.base
@@ -285,13 +319,10 @@ def main():
     node = Gesturer()
     log = node.get_logger()
 
-    log.info("Waiting for /joint_states ...")
-    while rclpy.ok() and node.base is None:
-        rclpy.spin_once(node, timeout_sec=0.1)
-
-    log.info("Waiting for the arm controller ...")
-    node.client.wait_for_server()
-    node.home_base = node.base
+    if not connect(node):
+        node.destroy_node()
+        rclpy.shutdown()
+        return
 
     try:
         print_menu()

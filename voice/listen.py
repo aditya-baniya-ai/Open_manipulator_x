@@ -131,15 +131,15 @@ def main():
     if not args.test:
         import rclpy
         from std_msgs.msg import String
-        from gestures import Gesturer, run_gesture
+        from gestures import Gesturer, connect, run_gesture
 
         rclpy.init(args=ros_args)
         node = Gesturer()
         text_pub = node.create_publisher(String, "/voice_text", 10)
-        print("Waiting for the arm ...")
-        while rclpy.ok() and node.base is None:
-            rclpy.spin_once(node, timeout_sec=0.1)
-        node.client.wait_for_server()
+        if not connect(node):
+            node.destroy_node()
+            rclpy.shutdown()
+            return
 
     proc, chunks = start_mic(args.mic)
     threshold = args.threshold

@@ -20,7 +20,7 @@ import time
 import rclpy
 from std_msgs.msg import Bool
 
-from gestures import GESTURES, Gesturer, load_saved, run_gesture
+from gestures import GESTURES, Gesturer, connect, load_saved, run_gesture
 
 GONE_TIME = 3.0     # seconds with nobody in view before the next person counts as new
 FLICKER_TIME = 0.5  # a person missed for less than this still counts as in view
@@ -56,11 +56,10 @@ def main():
     node = Greeter()
     log = node.get_logger()
 
-    log.info("Waiting for /joint_states ...")
-    while rclpy.ok() and node.base is None:
-        rclpy.spin_once(node, timeout_sec=0.1)
-    log.info("Waiting for the arm controller ...")
-    node.client.wait_for_server()
+    if not connect(node):
+        node.destroy_node()
+        rclpy.shutdown()
+        return
     log.info(f"Ready. Will greet with '{name}'. Press Ctrl+C to stop.")
 
     in_view_since = None  # when the current person came into view

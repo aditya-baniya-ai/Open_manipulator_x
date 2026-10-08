@@ -15,7 +15,7 @@ import tkinter as tk
 import rclpy
 
 from gestures import (
-    GESTURES, GRIPPER, JOINTS, Gesturer, catch_up, jog, key_problem, load_saved,
+    GESTURES, GRIPPER, JOINTS, Gesturer, catch_up, connect, jog, key_problem, load_saved,
     move_gripper, record_pose, run_gesture, save_recording,
 )
 
@@ -149,12 +149,11 @@ def main():
     rclpy.init()
     node = Gesturer()
 
-    print("Waiting for the arm ...")
-    while rclpy.ok() and node.base is None:
-        rclpy.spin_once(node, timeout_sec=0.1)
-    node.client.wait_for_server()
-    node.home_base = node.base
-    print("Ready. Opening the window.")
+    if not connect(node):
+        node.destroy_node()
+        rclpy.shutdown()
+        return
+    print("Opening the window.")
 
     root = tk.Tk()
     App(root, node)

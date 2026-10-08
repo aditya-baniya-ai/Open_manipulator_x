@@ -436,6 +436,8 @@ ros2 topic echo /joint_states --once
 2. **Hold the arm**, then press Ctrl+C in Terminal 1. The arm goes limp.
 3. Turn off the 12 V power.
 
+When the power is off, the arm slumps. Before starting it again, hold it standing roughly straight up and keep holding it while you turn the 12 V on. If you forget, the programs refuse to move the arm and tell you what to do.
+
 ### Simulation (no arm needed)
 
 A virtual arm in RViz (the 3D viewer) that uses the same controller as the real one, so everything works on it unchanged. Use it to try new moves safely. Don't run it at the same time as the real arm.
