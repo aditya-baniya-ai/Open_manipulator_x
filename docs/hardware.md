@@ -8,7 +8,8 @@
 - Micro USB data cable
 - NVIDIA Jetson Orin Nano (Ubuntu 22.04.5)
 - Camera: Logitech BRIO (USB). Color picture is `/dev/video0`; `/dev/video2` is its infrared camera.
-- Microphone, speaker (TODO: models)
+- Microphone: the BRIO's built-in mic (ALSA card 2, `plughw:2,0`). The Jetson has no mic of its own.
+- Speaker: none yet. The Jetson has no speaker or headphone jack; sound goes out over HDMI/DisplayPort (monitor speakers) or a USB/Bluetooth speaker.
 
 ## Servos
 
