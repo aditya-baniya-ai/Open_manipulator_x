@@ -62,17 +62,20 @@ It should print `/dev/ttyACM0`.
 
 ## 4. Workspace and ROBOTIS packages
 
+This repo lives in `~/Documents/Open_manipulator_x` (clone it there first if you haven't). Only the ROBOTIS code goes in the `~/colcon_ws` workspace.
+
 ```bash
 sudo apt install -y ros-humble-ros2-control ros-humble-ros2-controllers \
   ros-humble-moveit ros-humble-gripper-controllers
 mkdir -p ~/colcon_ws/src
-cd ~/colcon_ws/src
-git clone https://github.com/aditya-baniya-ai/Open_manipulator_x.git
-vcs import ~/colcon_ws/src < Open_manipulator_x/dependencies.repos
+vcs import ~/colcon_ws/src < ~/Documents/Open_manipulator_x/dependencies.repos
 cd ~/colcon_ws
+rosdep update
 rosdep install --from-paths src --ignore-src -y -r
 colcon build --symlink-install
 ```
+
+If rosdep says it isn't initialized, run `sudo rosdep init` once. If the build freezes or runs out of memory, use `colcon build --symlink-install --parallel-workers 1`.
 
 The ROBOTIS packages come from the official `ROBOTIS-GIT/open_manipulator` repo, `humble` branch (not older forks).
 
@@ -105,7 +108,7 @@ Then try keyboard teleop. TODO: record the exact teleop command.
 ## 8. First gesture
 
 ```bash
-python3 ~/colcon_ws/src/Open_manipulator_x/gestures/wave.py
+python3 ~/Documents/Open_manipulator_x/gestures/wave.py
 ```
 
 ## Notes
