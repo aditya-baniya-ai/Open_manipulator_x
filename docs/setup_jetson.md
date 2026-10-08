@@ -129,11 +129,17 @@ ros2 run open_manipulator_x_teleop open_manipulator_x_teleop
 
 Keys: `1`/`q` joint1, `2`/`w` joint2, `3`/`e` joint3, `4`/`r` joint4, `o`/`p` open/close the gripper, `ESC` to quit.
 
-## 8. First gesture
+## 8. Gestures
+
+With the arm launch running (MoveIt Servo isn't needed), in another terminal:
 
 ```bash
-python3 ~/Documents/Open_manipulator_x/gestures/wave.py
+python3 ~/Documents/Open_manipulator_x/gestures/gestures.py
 ```
+
+Then press a key: `w` wave, `n` nod, `s` shake, `b` bow, `l` look around, `h` home, `q` quit. Keys pressed while the arm is moving are ignored.
+
+To change a gesture or add a new one, edit the `GESTURES` list at the top of `gestures.py`. Each move is (base turn, shoulder, elbow, wrist, seconds), in radians.
 
 ## Notes
 

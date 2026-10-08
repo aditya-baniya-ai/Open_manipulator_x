@@ -12,6 +12,7 @@ A table robot built from a ROBOTIS OpenMANIPULATOR-X arm and an NVIDIA Jetson Or
 | ROS 2 Humble on the Jetson | ✅ installed |
 | Arm controlled through ROS 2 | ✅ working |
 | Wave gesture in ROS 2 | ✅ working |
+| More gestures (nod, shake, bow, look around) on key press | 🚧 written, not tested yet |
 | Camera, voice, picking | ⏳ planned |
 
 ## What's in this repo
@@ -26,7 +27,7 @@ firmware/
   README.md            how to upload code to the OpenCR board
   servo_check/         Arduino test: stands the arm up and waves
 gestures/
-  wave.py              ROS 2 wave gesture
+  gestures.py          press a key to wave, nod, shake, bow or look around
 dependencies.repos     list of ROBOTIS code to download (used in setup)
 ```
 

@@ -51,7 +51,7 @@ rosdep install --from-paths src --ignore-src -y -r --skip-keys "gazebo_ros gazeb
 
 **Cause:** the gripper keys send commands straight to the gripper controller, but the joint keys go through MoveIt Servo, which isn't running. The hardware is fine.
 
-**Fix:** start MoveIt Servo in another terminal before teleop: `ros2 launch open_manipulator_x_moveit_config servo.launch.py` (see [setup_jetson.md](setup_jetson.md#7-test)). To test the arm without MoveIt, run `gestures/wave.py`, which talks to the arm controller directly.
+**Fix:** start MoveIt Servo in another terminal before teleop: `ros2 launch open_manipulator_x_moveit_config servo.launch.py` (see [setup_jetson.md](setup_jetson.md#7-test)). To test the arm without MoveIt, run `gestures/gestures.py`, which talks to the arm controller directly.
 
 ## A servo ignores a target near 0° or 360°
 
