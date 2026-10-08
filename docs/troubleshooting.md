@@ -32,7 +32,7 @@ Upload from the Mac. The Arduino IDE can't upload to the OpenCR from the Jetson.
 
 ## Arm doesn't move after uploading usb_to_dxl
 
-This is normal. `usb_to_dxl` only passes commands from USB to the servos, and has no motions of its own. Plug the OpenCR into the Jetson and launch the arm with ROS 2 (see [setup_jetson.md](setup_jetson.md#6-launch-the-arm)).
+This is normal. `usb_to_dxl` only passes commands from USB to the servos, and has no motions of its own. Plug the OpenCR into the Jetson and launch the arm with ROS 2 (see [Start the arm](../README.md#start-the-arm-terminal-1) in the README).
 
 ## rosdep: Unable to locate package ros-humble-gazebo-ros
 
@@ -51,7 +51,7 @@ rosdep install --from-paths src --ignore-src -y -r --skip-keys "gazebo_ros gazeb
 
 **Cause:** the gripper keys send commands straight to the gripper controller, but the joint keys go through MoveIt Servo, which isn't running. The hardware is fine.
 
-**Fix:** start MoveIt Servo in another terminal before teleop: `ros2 launch open_manipulator_x_moveit_config servo.launch.py` (see [setup_jetson.md](setup_jetson.md#7-test)). To test the arm without MoveIt, run `gestures/gestures.py`, which talks to the arm controller directly.
+**Fix:** start MoveIt Servo in another terminal before teleop: `ros2 launch open_manipulator_x_moveit_config servo.launch.py` (see [Option B](../README.md#option-b-move-each-joint-with-the-keyboard-terminals-2-and-3) in the README). To test the arm without MoveIt, run `gestures/gestures.py`, which talks to the arm controller directly.
 
 ## A servo ignores a target near 0° or 360°
 

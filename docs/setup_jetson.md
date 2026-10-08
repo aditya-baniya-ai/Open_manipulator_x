@@ -1,6 +1,6 @@
-# Jetson setup log
+# Jetson setup notes
 
-Every step to set up the Jetson and run the arm with ROS 2, in order.
+The commands are in the [README](../README.md). This file explains why each step is needed and tracks progress.
 
 ## System
 
@@ -13,135 +13,42 @@ Every step to set up the Jetson and run the arm with ROS 2, in order.
 
 | Step | Status |
 |---|---|
-| 1. ROS 2 Humble installed | ✅ talker/listener test works |
-| 2. USB permission (dialout) | ✅ `groups` lists dialout |
-| 3. `usb_to_dxl` uploaded to OpenCR (from Mac) | ✅ `[OK] Download` |
-| 4. ROBOTIS arm packages built | ✅ 12 packages, about 2.5 min |
-| 5. `.bashrc` + udev rules | ⏳ |
-| 6. Arm launched through ROS 2 | ✅ arm_controller active, gripper moves |
-| 7. `/joint_states` + keyboard teleop test | ✅ joints move with MoveIt Servo |
-| 8. Wave gesture | ✅ arm waves through ROS 2 |
+| ROS 2 Humble installed | ✅ talker/listener test works |
+| USB permission (dialout) | ✅ `groups` lists dialout |
+| `usb_to_dxl` uploaded to OpenCR (from Mac) | ✅ `[OK] Download` |
+| ROBOTIS arm packages built | ✅ 12 packages, about 2.5 min |
+| `.bashrc` + udev rules | ✅ |
+| Arm launched through ROS 2 | ✅ arm_controller active, gripper moves |
+| Keyboard teleop | ✅ joints move with MoveIt Servo |
+| Wave gesture | ✅ arm waves through ROS 2 |
+| Other gestures (nod, shake, bow, look around) | ⏳ not tested yet |
 
-## 1. Install ROS 2 Humble
+## Why each step
 
-```bash
-sudo apt install -y software-properties-common curl
-sudo add-apt-repository -y universe
-sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list
-sudo apt update
-sudo apt install -y ros-humble-desktop ros-dev-tools
-```
+**Step 1, firmware.** `usb_to_dxl` turns the OpenCR into a USB-to-servo bridge. It has no motions of its own; the Jetson does all the control. It stays on the board after power off. Uploading any other sketch (like `servo_check`) replaces it.
 
-Check it works, in two terminals:
+**Step 2, ROS 2 Humble.** Humble is the ROS 2 version for Ubuntu 22.04. To check the install, run `ros2 run demo_nodes_cpp talker` in one terminal and `ros2 run demo_nodes_py listener` in another; the listener should print what the talker sends.
 
-```bash
-ros2 run demo_nodes_cpp talker
-ros2 run demo_nodes_py listener
-```
+**Step 3, this repo.** It lives in `~/Documents/Open_manipulator_x`, outside the ROS workspace. Only the ROBOTIS code goes in `~/colcon_ws`. The gestures script is plain Python, so it doesn't need building.
 
-## 2. Serial port permission
+**Step 4, dialout.** Serial ports like `/dev/ttyACM0` belong to the `dialout` group. Group changes only apply after logging in again; a new terminal isn't enough.
 
-The OpenCR shows up as `/dev/ttyACM0`. Your user needs to be in the `dialout` group to open it:
+**Step 5, ROBOTIS software.**
+- The apt packages are ros2_control (talks to motor hardware), ros2_controllers (the `arm_controller`), gripper controllers, and MoveIt (motion planning, needed later for picking).
+- `vcs import` downloads the 4 ROBOTIS repos listed in `dependencies.repos`: DynamixelSDK, dynamixel_hardware_interface, dynamixel_interfaces, and open_manipulator (`humble` branch of the official ROBOTIS-GIT repo, not older forks).
+- `rosdep` installs everything those repos need. The Gazebo keys are skipped because Gazebo (the simulator) isn't built for ARM computers like the Jetson.
+- `colcon build` compiles the code into `~/colcon_ws/install`. `--symlink-install` means edits to Python and config files apply without rebuilding.
 
-```bash
-sudo usermod -aG dialout $USER
-```
+**Step 6, terminal and udev.** The `.bashrc` lines make every new terminal find ROS 2 and the ROBOTIS packages. The udev rules set the OpenCR port's permissions and low-latency mode.
 
-Log out and back in, then check that `groups` lists `dialout`. See [troubleshooting](troubleshooting.md#permission-denied-on-devttyacm0).
+**Step 7, check.** `/dev/ttyACM0` is the OpenCR's USB port as seen by Linux.
 
-## 3. Upload usb_to_dxl to the OpenCR (on the Mac)
+## Other launch files
 
-The Arduino IDE can't upload to the OpenCR from the Jetson, so do this on the Mac. See [firmware/README.md](../firmware/README.md#usb_to_dxl-for-ros-2). Then plug the OpenCR's USB into the Jetson and check that it shows up:
+In `open_manipulator_x_bringup`:
+- `fake.launch.py`: a pretend arm with no hardware, good for testing code safely.
+- `gazebo.launch.py`: simulation (not available on the Jetson).
 
-```bash
-ls /dev/ttyACM*
-```
+## Changing gestures
 
-It should print `/dev/ttyACM0`.
-
-## 4. Workspace and ROBOTIS packages
-
-This repo lives in `~/Documents/Open_manipulator_x` (clone it there first if you haven't). Only the ROBOTIS code goes in the `~/colcon_ws` workspace.
-
-```bash
-sudo apt install -y ros-humble-ros2-control ros-humble-ros2-controllers \
-  ros-humble-moveit ros-humble-gripper-controllers
-mkdir -p ~/colcon_ws/src
-vcs import ~/colcon_ws/src < ~/Documents/Open_manipulator_x/dependencies.repos
-cd ~/colcon_ws
-rosdep update
-rosdep install --from-paths src --ignore-src -y -r
-colcon build --symlink-install
-```
-
-A good build ends with `Summary: 12 packages finished`. Lines saying packages "had stderr output", and CMake deprecation warnings, are just warnings and can be ignored. On the Jetson, rosdep fails on Gazebo; see [troubleshooting](troubleshooting.md#rosdep-unable-to-locate-package-ros-humble-gazebo-ros).
-
-If rosdep says it isn't initialized, run `sudo rosdep init` once. If the build freezes or runs out of memory, use `colcon build --symlink-install --parallel-workers 1`.
-
-The ROBOTIS packages come from the official `ROBOTIS-GIT/open_manipulator` repo, `humble` branch (not older forks).
-
-## 5. Terminal setup and udev rules
-
-```bash
-echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
-echo "source ~/colcon_ws/install/setup.bash" >> ~/.bashrc
-source ~/.bashrc
-```
-
-Check `~/.bashrc` first and skip the first line if it's already there.
-
-Then install the ROBOTIS udev rules, which set the OpenCR port's permissions and low-latency mode. It asks for your password:
-
-```bash
-ros2 run open_manipulator_x_bringup create_udev_rules
-```
-
-Unplug and replug the OpenCR's USB cable afterwards.
-
-## 6. Launch the arm
-
-Put the arm in its start pose by hand, and keep your hands clear and the power switch within reach. Then:
-
-```bash
-ros2 launch open_manipulator_x_bringup hardware.launch.py port_name:=/dev/ttyACM0
-```
-
-Other launch files in the same package: `fake.launch.py` runs a pretend arm with no hardware (good for testing code safely), and `gazebo.launch.py` is for simulation (not available on the Jetson).
-
-## 7. Test
-
-With the launch running, in a second terminal:
-
-```bash
-ros2 topic echo /joint_states --once
-```
-
-Then drive the arm with the keyboard. Joint teleop goes through MoveIt Servo, so start that first in a second terminal, and teleop in a third (keep the arm launch running in the first):
-
-```bash
-ros2 launch open_manipulator_x_moveit_config servo.launch.py
-```
-
-```bash
-ros2 run open_manipulator_x_teleop open_manipulator_x_teleop
-```
-
-Keys: `1`/`q` joint1, `2`/`w` joint2, `3`/`e` joint3, `4`/`r` joint4, `o`/`p` open/close the gripper, `ESC` to quit.
-
-## 8. Gestures
-
-With the arm launch running (MoveIt Servo isn't needed), in another terminal:
-
-```bash
-python3 ~/Documents/Open_manipulator_x/gestures/gestures.py
-```
-
-Then press a key: `w` wave, `n` nod, `s` shake, `b` bow, `l` look around, `h` home, `q` quit. Keys pressed while the arm is moving are ignored.
-
-To change a gesture or add a new one, edit the `GESTURES` list at the top of `gestures.py`. Each move is (base turn, shoulder, elbow, wrist, seconds), in radians.
-
-## Notes
-
-- ROS 2 uses radians, and 0 rad equals 180° on the servos.
-- Add anything else you run here as you go, including commands that didn't work.
+Edit the `GESTURES` list at the top of `gestures/gestures.py`. Each move is (base turn, shoulder, elbow, wrist, seconds), in radians, with 0 = home pose. ROS 2 uses radians, and 0 rad equals 180° on the servos. If a gesture moves the wrong way, flip the sign of that number.
