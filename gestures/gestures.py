@@ -7,17 +7,25 @@ Run it while the arm (or the simulation) is launched (see README.md):
 Then press a key:
     w  wave        n  nod (yes)    s  shake (no)
     b  bow         l  look around  h  go home
-    p  print the current pose as a line to paste into GESTURES
     q  quit
+
+Record your own move (move the arm with keyboard teleop between poses):
+    p  add the current pose to the move
+    k  keep the move: type a name and a key to play it with
+    x  throw away the poses recorded so far
+
+Saved moves go in my_gestures.json next to this file and load every time.
 
 Every gesture starts and ends at the home pose (joints 2-4 at 0 rad, the same
 pose as the Arduino greeting). The base (joint1) stays facing wherever it is now;
 shake and look-around turn it relative to that direction and come back.
 """
 
+import json
 import sys
 import termios
 import tty
+from pathlib import Path
 
 import rclpy
 from rclpy.node import Node
@@ -61,6 +69,9 @@ GESTURES = {
     ]),
     "h": ("home", []),
 }
+BUILT_IN = set(GESTURES)
+RECORD_KEYS = {"p", "k", "x", "q"}
+SAVED_FILE = Path(__file__).with_name("my_gestures.json")
 
 
 class Gesturer(Node):
@@ -69,6 +80,7 @@ class Gesturer(Node):
         self.base = None
         self.joints = {}       # latest angle of every joint, by name
         self.home_base = None  # where the base faced at the last home pose
+        self.recording = []    # poses added with p, not saved yet
         self.create_subscription(JointState, "/joint_states", self.on_joint_states, 10)
         self.client = ActionClient(
             self, FollowJointTrajectory, "/arm_controller/follow_joint_trajectory"
@@ -107,12 +119,59 @@ def catch_up(node):
         rclpy.spin_once(node, timeout_sec=0.0)
 
 
-def print_pose(node):
-    """Print the current pose in the same format as a move in GESTURES."""
+def record_pose(node):
+    """Add the current pose to the move being recorded."""
     catch_up(node)
     turn = node.base - node.home_base
     j2, j3, j4 = (node.joints[j] for j in JOINTS[1:])
-    print(f"    ({turn:.2f}, {j2:.2f}, {j3:.2f}, {j4:.2f}, 1.0),")
+    pose = [round(v, 2) for v in (turn, j2, j3, j4)] + [1.0]
+    node.recording.append(pose)
+    print(f"Pose {len(node.recording)} added: {tuple(pose)}")
+    print("Move the arm and press p again, or press k to save the move.")
+
+
+def load_saved():
+    """Add the moves saved in my_gestures.json to GESTURES."""
+    if not SAVED_FILE.exists():
+        return
+    for key, g in json.loads(SAVED_FILE.read_text()).items():
+        GESTURES[key] = (g["name"], [tuple(m) for m in g["moves"]])
+
+
+def write_saved(saved):
+    """Write my_gestures.json with one pose per line, so it's easy to edit."""
+    parts = []
+    for key, g in saved.items():
+        moves = ",\n      ".join(json.dumps(m) for m in g["moves"])
+        parts.append(
+            f'  {json.dumps(key)}: {{\n'
+            f'    "name": {json.dumps(g["name"])},\n'
+            f'    "moves": [\n      {moves}\n    ]\n  }}'
+        )
+    SAVED_FILE.write_text("{\n" + ",\n".join(parts) + "\n}\n")
+
+
+def save_move(node):
+    """Ask for a name and a key, then save the recorded poses as a move."""
+    if not node.recording:
+        print("Nothing recorded yet. Press p to add poses first.")
+        return
+    name = input("Name for this move: ").strip() or "my move"
+    while True:
+        key = input("Key to play it (one letter): ").strip().lower()
+        if len(key) != 1 or not key.isalnum():
+            print("Please type one letter or number.")
+        elif key in BUILT_IN or key in RECORD_KEYS:
+            print(f"'{key}' is already used. Try another.")
+        else:
+            break
+
+    GESTURES[key] = (name, [tuple(m) for m in node.recording])
+    saved = json.loads(SAVED_FILE.read_text()) if SAVED_FILE.exists() else {}
+    saved[key] = {"name": name, "moves": node.recording}
+    write_saved(saved)
+    node.recording = []
+    print(f"Saved '{name}'. Press {key} to play it.")
 
 
 def run_gesture(node, moves):
@@ -148,11 +207,12 @@ def print_menu():
     print("\nPress a key:")
     for key, (name, _) in GESTURES.items():
         print(f"  {key}  {name}")
-    print("  p  print the current pose")
     print("  q  quit")
+    print("Record a move: p add pose, k keep (save), x start over")
 
 
 def main():
+    load_saved()
     rclpy.init()
     node = Gesturer()
     log = node.get_logger()
@@ -172,7 +232,15 @@ def main():
             if key == "q":
                 break
             if key == "p":
-                print_pose(node)
+                record_pose(node)
+                continue
+            if key == "k":
+                save_move(node)
+                print_menu()
+                continue
+            if key == "x":
+                node.recording = []
+                print("Recording cleared.")
                 continue
             if key not in GESTURES:
                 continue

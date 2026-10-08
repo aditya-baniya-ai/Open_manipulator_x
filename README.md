@@ -164,10 +164,10 @@ Press a key (no Enter needed):
 | `s` | shake (no) |
 | `b` | bow |
 | `l` | look around |
-| `d` | my first gesture (made with the pose recorder) |
 | `h` | go to the home pose |
-| `p` | print the current pose (for making your own gestures) |
 | `q` | quit |
+
+Moves you've saved yourself also show up in the menu, with the key you gave them. To record one, see [Make your own gesture](#make-your-own-gesture).
 
 ### Option B: Move each joint with the keyboard (Terminals 2 and 3)
 
@@ -239,20 +239,23 @@ Pose the arm, save each pose, then replay them. Do this in the simulation first.
    ```bash
    python3 ~/Documents/Open_manipulator_x/gestures/gestures.py
    ```
-5. Press `h` in Terminal 4 to go home. Then repeat: move the arm with the keys in Terminal 3, and press `p` in Terminal 4. Each `p` prints a line like:
+5. Press `h` in Terminal 4 to go home.
+6. Move the arm with the keys in Terminal 3, then press `p` in Terminal 4 to add that pose. Repeat for each pose in your move.
+7. Press `k` in Terminal 4 to keep (save) the move. It asks two things; type each and press Enter:
    ```
-       (0.20, 0.45, -0.20, 0.61, 1.0),
+   Name for this move: hello dance
+   Key to play it (one letter): m
+   Saved 'hello dance'. Press m to play it.
    ```
-   That's (base turn, shoulder, elbow, wrist, seconds to get there), in radians.
-6. Open `gestures/gestures.py`, and add your lines to the `GESTURES` list under a new key:
-   ```python
-   "m": ("my dance", [
-       (0.20, 0.45, -0.20, 0.61, 1.0),
-       (-0.30, 0.10, 0.30, -0.40, 0.8),
-   ]),
-   ```
-   Change the last number to make a move faster or slower. Don't use a key that's taken (`w n s b l d h p q`).
-7. Restart `gestures.py`, press your key, and watch it in RViz. When it looks right, try it on the real arm.
+8. Press your key, and watch it in RViz. When it looks right, try it on the real arm.
+
+| Key | While recording |
+|---|---|
+| `p` | add the current pose |
+| `k` | keep (save) the move, with a name and a key |
+| `x` | throw away the poses so far and start over |
+
+Saved moves go in `gestures/my_gestures.json` and load every time `gestures.py` starts. Each pose there is one line: (base turn, shoulder, elbow, wrist, seconds to get there), in radians. To make a step faster or slower, change its last number. To delete a move, remove it from that file.
 
 ### Get the latest code
 
@@ -292,7 +295,8 @@ firmware/
   README.md            how to upload code to the OpenCR board
   servo_check/         Arduino test: stands the arm up and waves
 gestures/
-  gestures.py          press a key to wave, nod, shake, bow or look around
+  gestures.py          press a key to wave, nod, shake, bow or look around,
+                       or record and save your own moves (my_gestures.json)
 dependencies.repos     list of ROBOTIS code to download (used in Step 5)
 ```
 
