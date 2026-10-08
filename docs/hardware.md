@@ -7,7 +7,8 @@
 - 12 V 5 A power adapter
 - Micro USB data cable
 - NVIDIA Jetson Orin Nano (Ubuntu 22.04.5)
-- Camera, microphone, speaker (TODO: models)
+- Camera: Logitech BRIO (USB). Color picture is `/dev/video0`; `/dev/video2` is its infrared camera.
+- Microphone, speaker (TODO: models)
 
 ## Servos
 
