@@ -19,7 +19,7 @@ Every step to set up the Jetson and run the arm with ROS 2, in order.
 | 4. ROBOTIS arm packages built | ✅ 12 packages, about 2.5 min |
 | 5. `.bashrc` + udev rules | ⏳ |
 | 6. Arm launched through ROS 2 | ✅ arm_controller active, gripper moves |
-| 7. `/joint_states` + keyboard teleop test | ⏳ |
+| 7. `/joint_states` + keyboard teleop test | ✅ joints move with MoveIt Servo |
 | 8. Wave gesture | ✅ arm waves through ROS 2 |
 
 ## 1. Install ROS 2 Humble
@@ -117,11 +117,17 @@ With the launch running, in a second terminal:
 ros2 topic echo /joint_states --once
 ```
 
-Then drive the arm with the keyboard:
+Then drive the arm with the keyboard. Joint teleop goes through MoveIt Servo, so start that first in a second terminal, and teleop in a third (keep the arm launch running in the first):
+
+```bash
+ros2 launch open_manipulator_x_moveit_config servo.launch.py
+```
 
 ```bash
 ros2 run open_manipulator_x_teleop open_manipulator_x_teleop
 ```
+
+Keys: `1`/`q` joint1, `2`/`w` joint2, `3`/`e` joint3, `4`/`r` joint4, `o`/`p` open/close the gripper, `ESC` to quit.
 
 ## 8. First gesture
 
