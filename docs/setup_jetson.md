@@ -18,7 +18,7 @@ Every step to set up the Jetson and run the arm with ROS 2, in order.
 | 3. `usb_to_dxl` uploaded to OpenCR (from Mac) | ✅ `[OK] Download` |
 | 4. ROBOTIS arm packages built | ✅ 12 packages, about 2.5 min |
 | 5. `.bashrc` + udev rules | ⏳ |
-| 6. Arm launched through ROS 2 | ⏳ |
+| 6. Arm launched through ROS 2 | ✅ arm_controller active, gripper moves |
 | 7. `/joint_states` + keyboard teleop test | ⏳ |
 | 8. Wave gesture | ⏳ |
 

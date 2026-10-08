@@ -45,6 +45,14 @@ cd ~/colcon_ws
 rosdep install --from-paths src --ignore-src -y -r --skip-keys "gazebo_ros gazebo_ros_pkgs gazebo_ros2_control gazebo_plugins"
 ```
 
+## Teleop: gripper moves but joints don't
+
+**Symptom:** `open_manipulator_x_teleop` prints `fail to connect moveit_servo`. The o/p keys open and close the gripper, but the joint keys (1/q, 2/w, ...) only print `Joint PUB` and nothing moves.
+
+**Cause:** the gripper keys send commands straight to the gripper controller, but the joint keys go through MoveIt Servo, which isn't running. The hardware is fine.
+
+**Fix:** start MoveIt Servo before teleop (see [setup_jetson.md](setup_jetson.md#7-test)). To test the arm without MoveIt, run `gestures/wave.py`, which talks to the arm controller directly.
+
 ## A servo ignores a target near 0° or 360°
 
 **Symptom:** in the base swing test, the base started at 348°, so `start + 90` went past 360 and the servo rejected it.
