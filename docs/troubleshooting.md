@@ -105,6 +105,14 @@ pkill -f "ros2 launch"; pkill -f rviz2; pkill -f ros2_control_node
 
 Check nothing is left with `ros2 node list` (it should print nothing).
 
+## Arm stays stiff after every program is stopped
+
+**Symptom:** nothing is running (`ps aux | grep -E "ros2|rviz|control_node" | grep -v grep` prints nothing), but the joints still hold their position and can't be moved by hand.
+
+**Cause:** the servos keep holding their last position until they're told to let go or lose power. If the arm program was force-stopped (for example with `pkill`), it never released them.
+
+**Fix:** hold the arm, then turn off the 12 V power switch on the OpenCR. The joints go free. Turn it back on before the next launch.
+
 ## A servo ignores a target near 0° or 360°
 
 **Symptom:** in the base swing test, the base started at 348°, so `start + 90` went past 360 and the servo rejected it.
