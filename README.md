@@ -38,3 +38,43 @@ dependencies.repos     list of ROBOTIS code to download (used in setup)
 3. Set up the Jetson and run the arm with ROS 2: [docs/setup_jetson.md](docs/setup_jetson.md)
 
 Stuck? See [docs/troubleshooting.md](docs/troubleshooting.md).
+
+## Running the robot (after setup)
+
+Setup only happens once. After a reboot, just:
+
+1. Turn on the arm's 12 V power and plug the OpenCR's USB into the Jetson.
+2. Terminal 1, start the arm and leave it running:
+   ```bash
+   ros2 launch open_manipulator_x_bringup hardware.launch.py port_name:=/dev/ttyACM0
+   ```
+3. Terminal 2, gestures (press a key to wave, nod, shake, bow, look around):
+   ```bash
+   python3 ~/Documents/Open_manipulator_x/gestures/gestures.py
+   ```
+
+For keyboard control of each joint instead, run these in Terminals 2 and 3:
+
+```bash
+ros2 launch open_manipulator_x_moveit_config servo.launch.py
+```
+
+```bash
+ros2 run open_manipulator_x_teleop open_manipulator_x_teleop
+```
+
+**To stop:** quit the gestures (`q`), hold the arm, press Ctrl+C in Terminal 1 (the arm goes limp), then turn off the 12 V power.
+
+## How it works
+
+```
+gestures.py            sends joint angles over time
+   ↓  ROS 2 action
+arm_controller         turns them into a smooth path   ┐ started by
+   ↓                                                    │ hardware.launch.py
+dynamixel_hardware_interface   sends servo commands    ┘
+   ↓  USB /dev/ttyACM0
+OpenCR (usb_to_dxl)    passes commands to the servos
+   ↓
+servos                 move, and report their angles back as /joint_states
+```
