@@ -29,6 +29,7 @@ import json
 import math
 import sys
 import termios
+import time
 import tty
 from pathlib import Path
 
@@ -48,6 +49,8 @@ HOME_TIME = 1.5    # seconds to reach the home pose before each gesture
 #   base turn: radians, relative to where the base faces now
 #   joint2 shoulder, joint3 elbow, joint4 wrist: radians, 0 = home pose
 #   seconds: time to get from the previous move to this one
+# A move can have a 6th value, "open" or "close": the gripper does that once the arm
+# reaches the pose (only when it changes from the pose before).
 # If a gesture moves the wrong way on your arm, flip the sign of that number.
 GESTURES = {
     "w": ("wave", [
@@ -79,6 +82,8 @@ RECORD_KEYS = {"p", "k", "x", "q", "o", "c"}
 
 # Gripper finger positions, the same values ROBOTIS's teleop uses
 GRIPPER = {"o": ("open", 0.019), "c": ("close", -0.01)}
+GRIPPER_POSITION = {name: position for name, position in GRIPPER.values()}
+GRIPPER_TIME = 1.0  # seconds to wait for the gripper to open or close
 
 # Keys that nudge one joint: key -> (joint index, direction)
 JOG_KEYS = {
@@ -123,18 +128,37 @@ def point(positions, t):
     return p
 
 
-def build_trajectory(base, moves):
-    """Home pose, then the gesture's moves, then back to the home pose."""
-    t = HOME_TIME
-    points = [point([base, 0.0, 0.0, 0.0], t)]
-    for turn, j2, j3, j4, seconds in moves:
+def build_trajectory(base, moves, start_home=True, end_home=True):
+    """Home pose, then the moves, then back to the home pose."""
+    t, points = 0.0, []
+    if start_home:
+        t = HOME_TIME
+        points.append(point([base, 0.0, 0.0, 0.0], t))
+    for turn, j2, j3, j4, seconds, *_ in moves:
         t += seconds
         b = max(-BASE_LIMIT, min(BASE_LIMIT, base + turn))
         points.append(point([b, j2, j3, j4], t))
-    if moves:
+    if end_home and (moves or not start_home):
         t += 1.0
         points.append(point([base, 0.0, 0.0, 0.0], t))
     return points
+
+
+def split_at_gripper(moves):
+    """Split a gesture into arm segments, each followed by a gripper action (or None).
+
+    The arm moves smoothly through each segment; the gripper acts in between.
+    """
+    segments, current, last = [], [], None
+    for move in moves:
+        current.append(move)
+        grip = move[5] if len(move) > 5 else None
+        if grip is not None and grip != last:
+            segments.append((current, grip))
+            current, last = [], grip
+    # The last part returns home, even when the last pose ended with a gripper action
+    segments.append((current, None))
+    return segments
 
 
 def catch_up(node):
@@ -149,6 +173,10 @@ def record_pose(node):
     turn = node.base - node.home_base
     j2, j3, j4 = (node.joints[j] for j in JOINTS[1:])
     pose = [round(v, 2) for v in (turn, j2, j3, j4)] + [1.0]
+    grip = node.joints.get("gripper_left_joint")
+    if grip is not None:
+        # Remember the gripper too: open if it's past halfway open
+        pose.append("open" if grip > 0.0045 else "close")
     node.recording.append(pose)
     print(f"Pose {len(node.recording)} added: {tuple(pose)}")
     print("Move the arm and press p again, or press k to save the move.")
@@ -210,8 +238,8 @@ def save_move(node):
     print(f"Saved '{name}'. Press {key} to play it.")
 
 
-def move_gripper(node, position):
-    """Open or close the gripper, without waiting for it to finish."""
+def move_gripper(node, position, wait=False):
+    """Open or close the gripper. With wait=True, give it time to finish first."""
     if not node.gripper.wait_for_server(timeout_sec=1.0):
         node.get_logger().error("The gripper controller isn't running.")
         return
@@ -219,6 +247,11 @@ def move_gripper(node, position):
     goal.command.position = position
     goal.command.max_effort = 100.0
     rclpy.spin_until_future_complete(node, node.gripper.send_goal_async(goal))
+    if wait:
+        # Holding an object, the gripper stops early, so wait a set time instead
+        end = time.monotonic() + GRIPPER_TIME
+        while time.monotonic() < end:
+            rclpy.spin_once(node, timeout_sec=0.05)
 
 
 def jog(node, joint, direction):
@@ -291,23 +324,35 @@ def connect(node):
     return True
 
 
-def run_gesture(node, moves):
-    catch_up(node)
-    node.home_base = node.base
-    node.target = None  # number keys start again from wherever the gesture ends
-
+def move_arm(node, points):
+    """Send the arm along these points and wait until it gets there."""
     goal = FollowJointTrajectory.Goal()
     goal.trajectory.joint_names = JOINTS
-    goal.trajectory.points = build_trajectory(node.base, moves)
+    goal.trajectory.points = points
 
     send_future = node.client.send_goal_async(goal)
     rclpy.spin_until_future_complete(node, send_future)
     handle = send_future.result()
     if not handle.accepted:
         node.get_logger().error("The arm controller rejected the gesture.")
-        return
-    result_future = handle.get_result_async()
-    rclpy.spin_until_future_complete(node, result_future)
+        return False
+    rclpy.spin_until_future_complete(node, handle.get_result_async())
+    return True
+
+
+def run_gesture(node, moves):
+    catch_up(node)
+    node.home_base = base = node.base
+    node.target = None  # number keys start again from wherever the gesture ends
+
+    segments = split_at_gripper(moves)
+    for i, (part, grip) in enumerate(segments):
+        points = build_trajectory(base, part, start_home=(i == 0),
+                                  end_home=(i == len(segments) - 1))
+        if points and not move_arm(node, points):
+            return
+        if grip is not None:
+            move_gripper(node, GRIPPER_POSITION[grip], wait=True)
 
 
 def read_key():

@@ -520,7 +520,26 @@ Prefer buttons? Start with `gestures.sh --sim --gui` instead: move the joints wi
 | `k` | keep (save) the move, with a name and a key |
 | `x` | throw away the poses so far and start over |
 
-Saved moves go in `gestures/my_gestures.json` and load every time `gestures.py` starts. Each pose there is one line: (base turn, shoulder, elbow, wrist, seconds to get there), in radians. To make a step faster or slower, change its last number. To delete a move, remove it from that file.
+**The gripper:** each pose also remembers whether the gripper was open or closed. Click **Open** / **Close** (or press `o` / `c`) *before* **Add pose**. When the move plays, the arm reaches that pose, then the gripper opens or closes (only when it changes), then the arm carries on.
+
+**Changing a saved move:** record it again and save it with the **same letter** to replace it. For small changes, edit `gestures/my_gestures.json`:
+
+```bash
+gedit ~/Documents/Open_manipulator_x/gestures/my_gestures.json
+```
+
+Each pose is one line: base turn, shoulder, elbow, wrist (radians), seconds to get there, and optionally `"open"` or `"close"` for the gripper:
+
+```json
+[-0.55, 0.15, 0.6, 0.0, 1.0, "close"],
+```
+
+- Slower or faster: change the seconds (`2.0` takes twice as long as `1.0`).
+- Add a gripper action: add `, "open"` or `, "close"` after the seconds.
+- Remove a pose: delete its line (the new last line in a list mustn't end with a comma).
+- Delete a move: remove its whole block. Rename it: change `"name"`.
+
+Restart the controls to load your changes.
 
 ### Get the latest code
 
