@@ -16,7 +16,7 @@ Every step to set up the Jetson and run the arm with ROS 2, in order.
 | 1. ROS 2 Humble installed | ✅ talker/listener test works |
 | 2. USB permission (dialout) | ✅ `groups` lists dialout |
 | 3. `usb_to_dxl` uploaded to OpenCR (from Mac) | ✅ `[OK] Download` |
-| 4. ROBOTIS arm packages built | ⏳ |
+| 4. ROBOTIS arm packages built | ✅ 12 packages, about 2.5 min |
 | 5. `.bashrc` + udev rules | ⏳ |
 | 6. Arm launched through ROS 2 | ⏳ |
 | 7. `/joint_states` + keyboard teleop test | ⏳ |
@@ -74,6 +74,8 @@ rosdep update
 rosdep install --from-paths src --ignore-src -y -r
 colcon build --symlink-install
 ```
+
+A good build ends with `Summary: 12 packages finished`. Lines saying packages "had stderr output", and CMake deprecation warnings, are just warnings and can be ignored. On the Jetson, rosdep fails on Gazebo; see [troubleshooting](troubleshooting.md#rosdep-unable-to-locate-package-ros-humble-gazebo-ros).
 
 If rosdep says it isn't initialized, run `sudo rosdep init` once. If the build freezes or runs out of memory, use `colcon build --symlink-install --parallel-workers 1`.
 
