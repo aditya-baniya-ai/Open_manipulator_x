@@ -6,7 +6,7 @@
 - OpenCR 1.0 board
 - 12 V 5 A power adapter
 - Micro USB data cable
-- NVIDIA Jetson Orin Nano (Ubuntu 22.04.5)
+- NVIDIA Jetson Orin NX 16GB (Engineering Reference Developer Kit), Ubuntu 22.04.5, 16 GB memory
 - Camera: Logitech BRIO (USB). Color picture is `/dev/video0`; `/dev/video2` is its infrared camera.
 - Microphone: the BRIO's built-in mic (ALSA card 2, `plughw:2,0`). The Jetson has no mic of its own.
 - Speaker: none yet. The Jetson has no speaker or headphone jack; sound goes out over HDMI/DisplayPort (monitor speakers) or a USB/Bluetooth speaker.

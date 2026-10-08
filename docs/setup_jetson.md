@@ -4,7 +4,7 @@ The commands are in the [README](../README.md). This file explains why each step
 
 ## System
 
-- Board: NVIDIA Jetson Orin Nano
+- Board: NVIDIA Jetson Orin NX 16GB (check with `cat /proc/device-tree/model`)
 - OS: Ubuntu 22.04.5 (so ROS 2 **Humble**)
 - JetPack: 6.2 (L4T R36.4.7, CUDA 12.6, Python 3.10)
 - Install type: native (no Docker), to avoid USB, GPU, audio and display passthrough problems

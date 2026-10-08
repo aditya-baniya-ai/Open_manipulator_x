@@ -1,6 +1,6 @@
 # OpenMANIPULATOR-X Greeter Robot
 
-A table robot built from a ROBOTIS OpenMANIPULATOR-X arm and an NVIDIA Jetson Orin Nano running ROS 2 Humble. The goal: it sees people with a camera, greets them with gestures and voice, listens to commands, and picks up small objects like a pencil.
+A table robot built from a ROBOTIS OpenMANIPULATOR-X arm and an NVIDIA Jetson Orin NX 16GB running ROS 2 Humble. The goal: it sees people with a camera, greets them with gestures and voice, listens to commands, and picks up small objects like a pencil.
 
 > Demo video / GIF goes here.
 
@@ -26,7 +26,7 @@ A table robot built from a ROBOTIS OpenMANIPULATOR-X arm and an NVIDIA Jetson Or
 
 - OpenMANIPULATOR-X arm with an OpenCR 1.0 board and its 12 V 5 A power adapter
 - Micro USB data cable
-- NVIDIA Jetson Orin Nano with Ubuntu 22.04
+- NVIDIA Jetson Orin NX 16GB with Ubuntu 22.04 (JetPack 6). An Orin Nano should also work, with smaller AI models.
 - A Mac or PC with the Arduino IDE (only for uploading firmware to the OpenCR)
 
 Wiring and servo IDs: [docs/hardware.md](docs/hardware.md).
