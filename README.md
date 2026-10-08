@@ -202,6 +202,24 @@ ros2 topic echo /joint_states --once
 2. **Hold the arm**, then press Ctrl+C in Terminal 1. The arm goes limp.
 3. Turn off the 12 V power.
 
+### Simulation (no arm needed)
+
+A virtual arm in RViz (the 3D viewer) that uses the same controller as the real one, so `gestures.py` works on it unchanged. Use it to try new moves safely. Don't run it at the same time as the real-arm launch.
+
+Terminal 1:
+
+```bash
+ros2 launch open_manipulator_x_bringup base.launch.py use_fake_hardware:=true fake_sensor_commands:=true start_rviz:=true
+```
+
+Terminal 2:
+
+```bash
+python3 ~/Documents/Open_manipulator_x/gestures/gestures.py
+```
+
+(ROBOTIS's own `fake.launch.py` refuses to run on the Jetson; see [troubleshooting](docs/troubleshooting.md#fakelaunchpy-says-can-not-launch-fake-robot-in-raspberry-pi).)
+
 ### Get the latest code
 
 ```bash

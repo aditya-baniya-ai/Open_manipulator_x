@@ -46,7 +46,7 @@ The commands are in the [README](../README.md). This file explains why each step
 ## Other launch files
 
 In `open_manipulator_x_bringup`:
-- `fake.launch.py`: a pretend arm with no hardware, good for testing code safely.
+- `fake.launch.py`: a pretend arm with no hardware. It refuses to run on the Jetson (it mistakes it for a Raspberry Pi), so use the `base.launch.py` command from the README's Simulation section instead.
 - `gazebo.launch.py`: simulation (not available on the Jetson).
 
 ## Changing gestures
