@@ -15,11 +15,17 @@ A table robot built from a ROBOTIS OpenMANIPULATOR-X arm and an NVIDIA Jetson Or
 | Wave gesture in ROS 2 | ✅ working |
 | More gestures (nod, shake, bow, look around) on key press | ✅ working |
 | Record your own moves in simulation, play them on the real arm | ✅ working |
+| Button window (gestures, joints, gripper, recording) | ✅ working |
+| Gripper open / close | ✅ working |
+| Real arm shown live in RViz (`--rviz`) | ✅ working |
+| Start and stop the arm and controls with one command | ✅ working |
 | Camera picture in ROS 2 (Logitech BRIO) | ✅ working |
 | YOLO + YOLO-World on the Jetson GPU | ✅ installed, tested on a photo |
 | Live object detection from the camera (YOLO / YOLO-World) | ✅ working |
 | Wave automatically when a person appears (one command) | ✅ working |
 | Microphone (BRIO) + speech to text (Whisper on the GPU) | ✅ working |
+| Voice commands ("wave", "bow", ...) | 🚧 written, not tested yet |
+| Local LLM (Ollama) | 🚧 installing |
 | Voice replies (needs a speaker), picking | ⏳ planned |
 
 ## What you need
@@ -473,6 +479,8 @@ Pose the arm, save each pose, then replay them. Do this in the simulation first.
    Saved 'hello dance'. Press m to play it.
    ```
 5. Press your key, and watch it in RViz. When it looks right, press `q`, start the real arm with `~/Documents/Open_manipulator_x/launch/gestures.sh`, and press your key.
+
+**Recording on the real arm, watching it in RViz too:** start with `~/Documents/Open_manipulator_x/launch/gestures.sh --rviz --gui` (12 V on, space around the arm clear). The real arm moves and RViz shows it live; record the same way. Keep poses away from the table and the arm's own base, and remember each pose takes 1 second to reach, so poses far apart make fast swings.
 
 Prefer buttons? Start with `gestures.sh --sim --gui` instead: move the joints with `-` / `+`, click **Add pose** for each pose, then type a name and a letter and click **Save move**. Your move appears as a new button.
 
