@@ -118,6 +118,32 @@ colcon build --symlink-install
 
 This takes a few minutes. It should end with `Summary: 12 packages finished`. Warnings are fine. If it freezes, press Ctrl+C and run `colcon build --symlink-install --parallel-workers 1`.
 
+### Step 5b. Calm the base servo (stops it jittering)
+
+With ROBOTIS's default settings, the base jitters about ±0.3° when the arm holds a pose with the forearm sticking out (like Home). These commands give **only the base servo** gentler settings (P 400, I 0, D 0 instead of 800 / 100 / 100). They're sent to the servo at every launch and aren't stored in it permanently. First keep a backup:
+
+```bash
+cp ~/colcon_ws/src/open_manipulator/open_manipulator_x_description/ros2_control/open_manipulator_x_system.ros2_control.xacro ~/omx_ros2_control_backup.xacro
+```
+
+```bash
+sed -i '/<gpio name="dxl1">/,/<\/gpio>/ { s|"Position P Gain">800<|"Position P Gain">400<|; s|"Position I Gain">100<|"Position I Gain">0<|; s|"Position D Gain">100<|"Position D Gain">0<| }' ~/colcon_ws/src/open_manipulator/open_manipulator_x_description/ros2_control/open_manipulator_x_system.ros2_control.xacro
+```
+
+Check: this should show P 400, I 0 and D 0:
+
+```bash
+sed -n '/<gpio name="dxl1">/,/<\/gpio>/p' ~/colcon_ws/src/open_manipulator/open_manipulator_x_description/ros2_control/open_manipulator_x_system.ros2_control.xacro | grep "Gain"
+```
+
+Then rebuild that package (a WARNING about "underlay workspaces" is harmless):
+
+```bash
+cd ~/colcon_ws && colcon build --symlink-install --packages-select open_manipulator_x_description
+```
+
+To undo: copy the backup back (`cp ~/omx_ros2_control_backup.xacro ~/colcon_ws/src/open_manipulator/open_manipulator_x_description/ros2_control/open_manipulator_x_system.ros2_control.xacro`) and rebuild the same way. If you ever re-download the ROBOTIS code (`vcs import` again), repeat this step.
+
 ### Step 6. Set up the terminal and USB rules
 
 Make every new terminal load ROS 2 and the arm software:

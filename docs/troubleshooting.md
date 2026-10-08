@@ -143,6 +143,20 @@ echo "export ROS_DOMAIN_ID=42" >> ~/.bashrc && source ~/.bashrc
 
 Every terminal then only sees ROS programs with the same number.
 
+## The base jitters quickly (about ±1°) while holding a pose
+
+**Symptom:** after a gesture or Home, with the forearm sticking out, the base buzzes back and forth by a fraction of a degree. In the button window its angle flickers by ±1°.
+
+**How we found the cause:** the controller's target for the base stays exactly the same, but the measured position moves around it:
+
+```bash
+for i in 1 2 3; do ros2 topic echo /arm_controller/state --once --field desired.positions; ros2 topic echo /arm_controller/state --once --field actual.positions; sleep 1; done
+```
+
+So nothing in the software moves it: the base servo itself overshoots. ROBOTIS gives every servo P 800, I 100, D 100. That's too stiff for the base turning the long, sticking-out arm, with a little play in its gears.
+
+**Fix:** give the base servo P 400, I 0, D 0 (README, setup Step 5b). It's sent at every launch and not stored in the servo permanently, and there's a backup and undo. Lowering only I and D wasn't enough; lowering P to 400 stopped it.
+
 ## A servo ignores a target near 0° or 360°
 
 **Symptom:** in the base swing test, the base started at 348°, so `start + 90` went past 360 and the servo rejected it.

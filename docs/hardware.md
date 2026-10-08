@@ -25,6 +25,8 @@ DYNAMIXEL servos on one daisy-chained TTL cable, 1 Mbps, Protocol 2.0.
 
 180° on the servo (2048 steps) is the center and equals 0 rad in ROS.
 
+Servo settings: ROBOTIS's defaults are Position P/I/D gain 800/100/100 for every servo. This setup uses **400/0/0 for the base (ID 11)** to stop it jittering (README, setup Step 5b).
+
 ## Mounting direction
 
 Mount the arm so that with the **base servo at 0°** (the middle of its range) the arm faces your work area. The base can only turn about ±180° from there, so if "forward" sits near ±180° the arm is stuck at an end stop on one side.
