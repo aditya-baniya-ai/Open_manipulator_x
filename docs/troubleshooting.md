@@ -100,10 +100,10 @@ A loudest value above about 1000 means it picked up your voice. Near 0 means sil
 **Fix for anything still running now:**
 
 ```bash
-pkill -f "ros2 launch"; pkill -f rviz2; pkill -f ros2_control_node
+~/Documents/Open_manipulator_x/launch/stop.sh
 ```
 
-Check nothing is left with `ros2 node list` (it should print nothing).
+It stops every robot program and says whether anything is still running.
 
 ## Arm stays stiff after every program is stopped
 
@@ -128,11 +128,20 @@ Check nothing is left with `ros2 node list` (it should print nothing).
 **Fix:** hold the real arm, stop everything, check nothing is left, then start just one thing:
 
 ```bash
-pkill -f ros2; pkill -f rviz2; pkill -f servo_node; pkill -f ros2_control_node; pkill -f gui.py; pkill -f gestures.py
-ps aux | grep -E "ros2|rviz|servo|control_node|gestures|gui.py" | grep -v grep
+~/Documents/Open_manipulator_x/launch/stop.sh
 ```
 
-The second command should print nothing. `launch/gestures.sh` and the controls now refuse to start when this happens, and say why.
+It should say `Everything is stopped.` (A plain `pkill -f ros2` isn't enough: it misses programs like `robot_state_publisher`, which keep running in the background.) If it lists nodes that aren't running on your Jetson, they're from another computer on the network: see the next section. `launch/gestures.sh` and the controls now refuse to start when this happens, and say why.
+
+## Nodes from other computers (shared network)
+
+ROS 2 automatically shares topics with every computer on the same network. In a lab or makerspace, another robot's `/joint_states` or commands can mix with yours. If `launch/stop.sh` (or `ros2 node list` with nothing running) still lists nodes, give your robot its own private channel. Pick a number from 1 to 101 that nobody else on the network uses:
+
+```bash
+echo "export ROS_DOMAIN_ID=42" >> ~/.bashrc && source ~/.bashrc
+```
+
+Every terminal then only sees ROS programs with the same number.
 
 ## A servo ignores a target near 0° or 360°
 

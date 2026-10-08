@@ -374,6 +374,8 @@ ros2 launch ~/Documents/Open_manipulator_x/launch/greeter.launch.py sim:=true
 
 **To stop:** hold the arm, then press Ctrl+C once. Everything stops and the arm goes limp.
 
+**If something is left running** (the arm shakes, RViz won't close, or a program says another arm is running), hold the arm and run `~/Documents/Open_manipulator_x/launch/stop.sh`.
+
 A person has to be in view for 1 second before it greets. It greets each person once: it won't greet again until 30 seconds have passed and nobody has been in view for 3 seconds.
 
 Options (add them to the end of the command, like `sim:=true` above):
@@ -543,6 +545,7 @@ voice/
 launch/
   greeter.launch.py    starts the whole greeter robot with one command
   gestures.sh          starts the arm (real or --sim) and the controls (keys, or --gui) together
+  stop.sh              stops every robot program (use when something is left running)
 dependencies.repos     list of ROBOTIS code to download (used in Step 5)
 ```
 

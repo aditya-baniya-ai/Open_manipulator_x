@@ -263,7 +263,7 @@ def connect(node):
         print(f"\n{arms} arm programs are running at once (real and/or simulated), so the")
         print("arm won't be moved: their angles would mix and the arm would shake.")
         print("Stop them all (hold the real arm first), then start just one:")
-        print("  pkill -f ros2; pkill -f rviz2; pkill -f servo_node; pkill -f ros2_control_node\n")
+        print("  ~/Documents/Open_manipulator_x/launch/stop.sh\n")
         return False
     # Our own joint buttons are one sender; any other (like a leftover MoveIt Servo)
     # keeps sending its own "hold here" commands and the arm shakes
@@ -271,7 +271,7 @@ def connect(node):
     if senders > 1:
         print("\nSomething else (probably MoveIt Servo from servo.launch.py) is also sending")
         print("commands to the arm, so it won't be moved: the arm would shake.")
-        print("Stop it first:  pkill -f servo_node\n")
+        print("Stop it first:  ~/Documents/Open_manipulator_x/launch/stop.sh\n")
         return False
 
     problems = []
