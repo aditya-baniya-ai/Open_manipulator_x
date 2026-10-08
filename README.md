@@ -266,6 +266,32 @@ See the picture (another terminal), then pick `/image_raw` from the dropdown at 
 ros2 run rqt_image_view rqt_image_view
 ```
 
+### Detect objects (camera must be running)
+
+Regular YOLO, which knows 80 everyday objects (person, cup, bottle, phone, ...):
+
+```bash
+python3 ~/Documents/Open_manipulator_x/perception/detect.py
+```
+
+YOLO-World, which looks only for the words you give it, including objects regular YOLO doesn't know:
+
+```bash
+python3 ~/Documents/Open_manipulator_x/perception/detect.py --find pencil cup
+```
+
+A window shows boxes around what it finds; press `q` in the window to quit. Other options: `--conf 0.6` reports only things it's more sure about (default 0.4), and `--no-window` runs without the video window.
+
+It also publishes what it sees, for other programs (like the robot's greeting) to use. To watch it:
+
+```bash
+ros2 topic echo /person_detected
+```
+
+```bash
+ros2 topic echo /detections
+```
+
 ### Check the joint angles (any terminal)
 
 ```bash
@@ -371,6 +397,8 @@ firmware/
 gestures/
   gestures.py          press a key to wave, nod, shake, bow or look around,
                        or record and save your own moves (my_gestures.json)
+perception/
+  detect.py            live object detection from the camera (YOLO / YOLO-World)
 dependencies.repos     list of ROBOTIS code to download (used in Step 5)
 ```
 

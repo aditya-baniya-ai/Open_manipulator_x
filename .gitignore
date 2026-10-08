@@ -8,3 +8,6 @@ log/
 
 # Python
 __pycache__/
+
+# YOLO model files (downloaded automatically)
+*.pt
