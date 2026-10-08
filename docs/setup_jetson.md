@@ -14,7 +14,7 @@ Every step to set up the Jetson and run the arm with ROS 2, in order.
 | Step | Status |
 |---|---|
 | 1. ROS 2 Humble installed | ✅ talker/listener test works |
-| 2. USB permission (dialout) | 🚧 in progress |
+| 2. USB permission (dialout) | ✅ `groups` lists dialout |
 | 3. `usb_to_dxl` uploaded to OpenCR (from Mac) | ❓ not confirmed |
 | 4. ROBOTIS arm packages built | ⏳ |
 | 5. `.bashrc` + udev rules | ⏳ |
