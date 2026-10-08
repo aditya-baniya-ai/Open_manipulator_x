@@ -52,7 +52,13 @@ Log out and back in, then check that `groups` lists `dialout`. See [troubleshoot
 
 ## 3. Upload usb_to_dxl to the OpenCR (on the Mac)
 
-The Arduino IDE can't upload to the OpenCR from the Jetson, so do this on the Mac. See [firmware/README.md](../firmware/README.md#usb_to_dxl-for-ros-2). Then plug the OpenCR's USB into the Jetson.
+The Arduino IDE can't upload to the OpenCR from the Jetson, so do this on the Mac. See [firmware/README.md](../firmware/README.md#usb_to_dxl-for-ros-2). Then plug the OpenCR's USB into the Jetson and check that it shows up:
+
+```bash
+ls /dev/ttyACM*
+```
+
+It should print `/dev/ttyACM0`.
 
 ## 4. Workspace and ROBOTIS packages
 
