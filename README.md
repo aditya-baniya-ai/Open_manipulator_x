@@ -18,7 +18,7 @@ A table robot built from a ROBOTIS OpenMANIPULATOR-X arm and an NVIDIA Jetson Or
 | Camera picture in ROS 2 (Logitech BRIO) | ✅ working |
 | YOLO + YOLO-World on the Jetson GPU | ✅ installed, tested on a photo |
 | Live object detection from the camera (YOLO / YOLO-World) | ✅ working |
-| Wave automatically when a person appears | ⏳ next |
+| Wave automatically when a person appears (one command) | ✅ working |
 | Voice, picking | ⏳ planned |
 
 ## What you need
