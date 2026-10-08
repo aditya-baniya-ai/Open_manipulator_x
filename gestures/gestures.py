@@ -11,6 +11,7 @@ Then press a key:
 
 Move each joint a little (hold the key to keep moving):
     1/2  base     3/4  shoulder     5/6  elbow     7/8  wrist
+    o    open the gripper           c    close the gripper
 
 Record your own move (move the joints between poses):
     p  add the current pose to the move
@@ -33,7 +34,7 @@ from pathlib import Path
 import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
-from control_msgs.action import FollowJointTrajectory
+from control_msgs.action import FollowJointTrajectory, GripperCommand
 from trajectory_msgs.msg import JointTrajectoryPoint
 from sensor_msgs.msg import JointState
 from builtin_interfaces.msg import Duration
@@ -73,7 +74,10 @@ GESTURES = {
     "h": ("home", []),
 }
 BUILT_IN = set(GESTURES)
-RECORD_KEYS = {"p", "k", "x", "q"}
+RECORD_KEYS = {"p", "k", "x", "q", "o", "c"}
+
+# Gripper finger positions, the same values ROBOTIS's teleop uses
+GRIPPER = {"o": ("open", 0.019), "c": ("close", -0.01)}
 
 # Keys that nudge one joint: key -> (joint index, direction)
 JOG_KEYS = {
@@ -101,6 +105,7 @@ class Gesturer(Node):
         self.client = ActionClient(
             self, FollowJointTrajectory, "/arm_controller/follow_joint_trajectory"
         )
+        self.gripper = ActionClient(self, GripperCommand, "/gripper_controller/gripper_cmd")
 
     def on_joint_states(self, msg):
         self.joints.update(zip(msg.name, msg.position))
@@ -190,6 +195,17 @@ def save_move(node):
     print(f"Saved '{name}'. Press {key} to play it.")
 
 
+def move_gripper(node, position):
+    """Open or close the gripper, without waiting for it to finish."""
+    if not node.gripper.wait_for_server(timeout_sec=1.0):
+        node.get_logger().error("The gripper controller isn't running.")
+        return
+    goal = GripperCommand.Goal()
+    goal.command.position = position
+    goal.command.max_effort = 100.0
+    rclpy.spin_until_future_complete(node, node.gripper.send_goal_async(goal))
+
+
 def jog(node, joint, direction):
     """Nudge one joint a little, without waiting for it to finish."""
     catch_up(node)
@@ -240,6 +256,7 @@ def print_menu():
         print(f"  {key}  {name}")
     print("  q  quit")
     print("Move joints:   1/2 base, 3/4 shoulder, 5/6 elbow, 7/8 wrist")
+    print("Gripper:       o open, c close")
     print("Record a move: p add pose, k keep (save), x start over")
 
 
@@ -265,6 +282,11 @@ def main():
                 break
             if key in JOG_KEYS:
                 jog(node, *JOG_KEYS[key])
+                continue
+            if key in GRIPPER:
+                name, position = GRIPPER[key]
+                print(f"Gripper {name}")
+                move_gripper(node, position)
                 continue
             if key == "p":
                 record_pose(node)

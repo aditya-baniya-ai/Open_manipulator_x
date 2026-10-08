@@ -265,6 +265,7 @@ Press a key (no Enter needed):
 | `3` / `4` | move the shoulder |
 | `5` / `6` | move the elbow |
 | `7` / `8` | tilt the wrist |
+| `o` / `c` | open / close the gripper |
 | `p` `k` `x` | record your own move (see [Make your own gesture](#make-your-own-gesture)) |
 | `q` | quit (also stops the arm if `gestures.sh` started it) |
 
