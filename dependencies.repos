@@ -1,0 +1,22 @@
+# ROBOTIS packages this project builds on.
+# Import them next to this repo in the workspace:
+#   vcs import ~/colcon_ws/src < dependencies.repos
+# Once the robot works, replace each "humble" with the exact commit ID you used,
+# so future ROBOTIS updates can't break this project.
+repositories:
+  DynamixelSDK:
+    type: git
+    url: https://github.com/ROBOTIS-GIT/DynamixelSDK.git
+    version: humble
+  open_manipulator:
+    type: git
+    url: https://github.com/ROBOTIS-GIT/open_manipulator.git
+    version: humble
+  dynamixel_hardware_interface:
+    type: git
+    url: https://github.com/ROBOTIS-GIT/dynamixel_hardware_interface.git
+    version: humble
+  dynamixel_interfaces:
+    type: git
+    url: https://github.com/ROBOTIS-GIT/dynamixel_interfaces.git
+    version: humble

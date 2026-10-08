@@ -1,0 +1,10 @@
+# macOS
+.DS_Store
+
+# ROS 2 build output
+build/
+install/
+log/
+
+# Python
+__pycache__/
