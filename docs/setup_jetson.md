@@ -21,7 +21,7 @@ The commands are in the [README](../README.md). This file explains why each step
 | Arm launched through ROS 2 | ✅ arm_controller active, gripper moves |
 | Keyboard teleop | ✅ joints move with MoveIt Servo |
 | Wave gesture | ✅ arm waves through ROS 2 |
-| Other gestures (nod, shake, bow, look around) | ⏳ not tested yet |
+| Other gestures (nod, shake, bow, look around) | ✅ all move correctly |
 
 ## Why each step
 

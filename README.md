@@ -13,7 +13,7 @@ A table robot built from a ROBOTIS OpenMANIPULATOR-X arm and an NVIDIA Jetson Or
 | Arm controlled through ROS 2 | ✅ working |
 | Keyboard control of each joint | ✅ working |
 | Wave gesture in ROS 2 | ✅ working |
-| More gestures (nod, shake, bow, look around) on key press | 🚧 written, not tested yet |
+| More gestures (nod, shake, bow, look around) on key press | ✅ working |
 | Camera, voice, picking | ⏳ planned |
 
 ## What you need
