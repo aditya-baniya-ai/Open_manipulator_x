@@ -26,3 +26,5 @@ Locks all joints, turns the base 90°, stands the arm straight up, and waves the
 ## usb_to_dxl (for ROS 2)
 
 File > Examples > OpenCR > 10.Etc > usb_to_dxl, then Upload. The OpenCR then just passes USB data through to the servos, and the Jetson does the control.
+
+A good upload ends with `CRC OK`, `[OK] Download` and `jump_to_fw`. **The arm will not move after this upload.** That's expected: `usb_to_dxl` has no motions of its own, so the arm waits for ROS 2 commands from the Jetson.

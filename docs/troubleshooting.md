@@ -30,6 +30,10 @@ Put the board in recovery mode: hold **PUSH SW2**, press **RESET**, release SW2,
 
 Upload from the Mac. The Arduino IDE can't upload to the OpenCR from the Jetson.
 
+## Arm doesn't move after uploading usb_to_dxl
+
+This is normal. `usb_to_dxl` only passes commands from USB to the servos, and has no motions of its own. Plug the OpenCR into the Jetson and launch the arm with ROS 2 (see [setup_jetson.md](setup_jetson.md#6-launch-the-arm)).
+
 ## A servo ignores a target near 0° or 360°
 
 **Symptom:** in the base swing test, the base started at 348°, so `start + 90` went past 360 and the servo rejected it.
