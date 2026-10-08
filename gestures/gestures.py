@@ -172,6 +172,24 @@ def write_saved(saved):
     SAVED_FILE.write_text("{\n" + ",\n".join(parts) + "\n}\n")
 
 
+def key_problem(key):
+    """Return why a key can't be used for a saved move, or None if it's fine."""
+    if len(key) != 1 or not key.isalpha():
+        return "Please use one letter."
+    if key in BUILT_IN or key in RECORD_KEYS:
+        return f"'{key}' is already used. Try another."
+    return None
+
+
+def save_recording(node, name, key):
+    """Save the recorded poses as a move called name, played with key."""
+    GESTURES[key] = (name, [tuple(m) for m in node.recording])
+    saved = json.loads(SAVED_FILE.read_text()) if SAVED_FILE.exists() else {}
+    saved[key] = {"name": name, "moves": node.recording}
+    write_saved(saved)
+    node.recording = []
+
+
 def save_move(node):
     """Ask for a name and a key, then save the recorded poses as a move."""
     if not node.recording:
@@ -180,18 +198,12 @@ def save_move(node):
     name = input("Name for this move: ").strip() or "my move"
     while True:
         key = input("Key to play it (one letter): ").strip().lower()
-        if len(key) != 1 or not key.isalpha():
-            print("Please type one letter.")
-        elif key in BUILT_IN or key in RECORD_KEYS:
-            print(f"'{key}' is already used. Try another.")
-        else:
+        problem = key_problem(key)
+        if problem is None:
             break
+        print(problem)
 
-    GESTURES[key] = (name, [tuple(m) for m in node.recording])
-    saved = json.loads(SAVED_FILE.read_text()) if SAVED_FILE.exists() else {}
-    saved[key] = {"name": name, "moves": node.recording}
-    write_saved(saved)
-    node.recording = []
+    save_recording(node, name, key)
     print(f"Saved '{name}'. Press {key} to play it.")
 
 

@@ -271,6 +271,22 @@ Press a key (no Enter needed):
 
 Hold a number key to keep a joint moving. Moves you've saved yourself also show up in the menu, with the key you gave them.
 
+### Option A2: The same controls as buttons in a window
+
+Everything above (gestures, joints, gripper, recording) as buttons, so you don't need the keyboard. The first time, install Tkinter (Python's window toolkit):
+
+```bash
+sudo apt install -y python3-tk
+```
+
+Then start the arm and the window together:
+
+```bash
+~/Documents/Open_manipulator_x/launch/gestures.sh --gui
+```
+
+Add `--sim` to use the simulated arm (`gestures.sh --sim --gui`). Hold a joint's `−` / `+` button to keep it moving. The window stops responding while a gesture plays, so gestures can't overlap. The Quit button also stops the arm.
+
 ### Option B: Move each joint with the keyboard (Terminals 2 and 3)
 
 Terminal 2:
@@ -450,6 +466,8 @@ Pose the arm, save each pose, then replay them. Do this in the simulation first.
    ```
 5. Press your key, and watch it in RViz. When it looks right, press `q`, start the real arm with `~/Documents/Open_manipulator_x/launch/gestures.sh`, and press your key.
 
+Prefer buttons? Start with `gestures.sh --sim --gui` instead: move the joints with `−` / `+`, click **Add pose** for each pose, then type a name and a letter and click **Save move**. Your move appears as a new button.
+
 | Key | While recording |
 |---|---|
 | `p` | add the current pose |
@@ -499,13 +517,14 @@ gestures/
   gestures.py          press a key to wave, nod, shake, bow or look around,
                        or record and save your own moves (my_gestures.json)
   greet.py             waves automatically when the camera sees a person
+  gui.py               the same controls as gestures.py, as buttons in a window
 perception/
   detect.py            live object detection from the camera (YOLO / YOLO-World)
 voice/
   listen.py            voice commands: say "wave", "bow", ... and the arm does it
 launch/
   greeter.launch.py    starts the whole greeter robot with one command
-  gestures.sh          starts the arm (real or --sim) and the gesture menu together
+  gestures.sh          starts the arm (real or --sim) and the controls (keys, or --gui) together
 dependencies.repos     list of ROBOTIS code to download (used in Step 5)
 ```
 
