@@ -165,6 +165,7 @@ Press a key (no Enter needed):
 | `b` | bow |
 | `l` | look around |
 | `h` | go to the home pose |
+| `p` | print the current pose (for making your own gestures) |
 | `q` | quit |
 
 ### Option B: Move each joint with the keyboard (Terminals 2 and 3)
@@ -219,6 +220,38 @@ python3 ~/Documents/Open_manipulator_x/gestures/gestures.py
 ```
 
 (ROBOTIS's own `fake.launch.py` refuses to run on the Jetson; see [troubleshooting](docs/troubleshooting.md#fakelaunchpy-says-can-not-launch-fake-robot-in-raspberry-pi).)
+
+### Make your own gesture
+
+Pose the arm, save each pose, then replay them. Do this in the simulation first.
+
+1. Start the simulation (Terminal 1, above).
+2. Terminal 2, keyboard control:
+   ```bash
+   ros2 launch open_manipulator_x_moveit_config servo.launch.py
+   ```
+3. Terminal 3:
+   ```bash
+   ros2 run open_manipulator_x_teleop open_manipulator_x_teleop
+   ```
+4. Terminal 4:
+   ```bash
+   python3 ~/Documents/Open_manipulator_x/gestures/gestures.py
+   ```
+5. Press `h` in Terminal 4 to go home. Then repeat: move the arm with the keys in Terminal 3, and press `p` in Terminal 4. Each `p` prints a line like:
+   ```
+       (0.20, 0.45, -0.20, 0.61, 1.0),
+   ```
+   That's (base turn, shoulder, elbow, wrist, seconds to get there), in radians.
+6. Open `gestures/gestures.py`, and add your lines to the `GESTURES` list under a new key:
+   ```python
+   "d": ("my dance", [
+       (0.20, 0.45, -0.20, 0.61, 1.0),
+       (-0.30, 0.10, 0.30, -0.40, 0.8),
+   ]),
+   ```
+   Change the last number to make a move faster or slower. Don't use a key that's taken (`w n s b l h p q`).
+7. Restart `gestures.py`, press your key, and watch it in RViz. When it looks right, try it on the real arm.
 
 ### Get the latest code
 

@@ -1,12 +1,13 @@
 """
 Keyboard-triggered gestures for OpenMANIPULATOR-X (ROS 2).
 
-Run it while the arm is launched (see docs/setup_jetson.md):
+Run it while the arm (or the simulation) is launched (see README.md):
     python3 gestures.py
 
 Then press a key:
     w  wave        n  nod (yes)    s  shake (no)
     b  bow         l  look around  h  go home
+    p  print the current pose as a line to paste into GESTURES
     q  quit
 
 Every gesture starts and ends at the home pose (joints 2-4 at 0 rad, the same
@@ -66,12 +67,15 @@ class Gesturer(Node):
     def __init__(self):
         super().__init__("gesturer")
         self.base = None
+        self.joints = {}       # latest angle of every joint, by name
+        self.home_base = None  # where the base faced at the last home pose
         self.create_subscription(JointState, "/joint_states", self.on_joint_states, 10)
         self.client = ActionClient(
             self, FollowJointTrajectory, "/arm_controller/follow_joint_trajectory"
         )
 
     def on_joint_states(self, msg):
+        self.joints.update(zip(msg.name, msg.position))
         if "joint1" in msg.name:
             self.base = msg.position[msg.name.index("joint1")]
 
@@ -97,10 +101,23 @@ def build_trajectory(base, moves):
     return points
 
 
-def run_gesture(node, moves):
-    # Catch up on /joint_states so we use where the base faces right now
+def catch_up(node):
+    """Read any waiting /joint_states messages so the angles are current."""
     for _ in range(20):
         rclpy.spin_once(node, timeout_sec=0.0)
+
+
+def print_pose(node):
+    """Print the current pose in the same format as a move in GESTURES."""
+    catch_up(node)
+    turn = node.base - node.home_base
+    j2, j3, j4 = (node.joints[j] for j in JOINTS[1:])
+    print(f"    ({turn:.2f}, {j2:.2f}, {j3:.2f}, {j4:.2f}, 1.0),")
+
+
+def run_gesture(node, moves):
+    catch_up(node)
+    node.home_base = node.base
 
     goal = FollowJointTrajectory.Goal()
     goal.trajectory.joint_names = JOINTS
@@ -131,6 +148,7 @@ def print_menu():
     print("\nPress a key:")
     for key, (name, _) in GESTURES.items():
         print(f"  {key}  {name}")
+    print("  p  print the current pose")
     print("  q  quit")
 
 
@@ -145,13 +163,17 @@ def main():
 
     log.info("Waiting for the arm controller ...")
     node.client.wait_for_server()
+    node.home_base = node.base
 
     try:
+        print_menu()
         while rclpy.ok():
-            print_menu()
             key = read_key()
             if key == "q":
                 break
+            if key == "p":
+                print_pose(node)
+                continue
             if key not in GESTURES:
                 continue
             name, moves = GESTURES[key]
@@ -159,6 +181,7 @@ def main():
             run_gesture(node, moves)
             # Ignore keys pressed while the arm was moving
             termios.tcflush(sys.stdin, termios.TCIFLUSH)
+            print_menu()
     except KeyboardInterrupt:
         pass
 
