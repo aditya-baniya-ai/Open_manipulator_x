@@ -63,6 +63,34 @@ rosdep install --from-paths src --ignore-src -y -r --skip-keys "gazebo_ros gazeb
 ros2 launch open_manipulator_x_bringup base.launch.py use_sim:=false use_fake_hardware:=true fake_sensor_commands:=true start_rviz:=true
 ```
 
+## Whisper: module 'coverage' has no attribute 'types'
+
+**Symptom:** `import whisper` fails inside `numba` with `AttributeError: module 'coverage' has no attribute 'types'`. There may also be a warning that SciPy needs `NumPy <1.25.0`.
+
+**Cause:** Ubuntu 22.04 ships old `coverage` and `scipy` packages. Whisper's `numba` needs a newer `coverage`, and the old SciPy predates the NumPy that YOLO installed.
+
+**Fix:** install newer copies for your user (Ubuntu's own copies are left alone), keeping NumPy on 1.x for ROS 2:
+
+```bash
+pip3 install -U "coverage>=7.2" "scipy<1.15" "numpy<2"
+```
+
+## Checking the microphone without a speaker
+
+Record, then measure how loud the recording is:
+
+```bash
+arecord -D plughw:2,0 -f S16_LE -r 16000 -c 1 -d 5 ~/mic_test.wav
+python3 -c "
+import wave, numpy as np
+w = wave.open('$HOME/mic_test.wav')
+a = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
+print('seconds:', round(len(a) / w.getframerate(), 1), ' loudest:', int(np.abs(a).max()), 'out of 32767')
+"
+```
+
+A loudest value above about 1000 means it picked up your voice. Near 0 means silence (muted or wrong device).
+
 ## A servo ignores a target near 0° or 360°
 
 **Symptom:** in the base swing test, the base started at 348°, so `start + 90` went past 360 and the servo rejected it.

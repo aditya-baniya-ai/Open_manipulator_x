@@ -19,7 +19,8 @@ A table robot built from a ROBOTIS OpenMANIPULATOR-X arm and an NVIDIA Jetson Or
 | YOLO + YOLO-World on the Jetson GPU | ✅ installed, tested on a photo |
 | Live object detection from the camera (YOLO / YOLO-World) | ✅ working |
 | Wave automatically when a person appears (one command) | ✅ working |
-| Voice, picking | ⏳ planned |
+| Microphone (BRIO) + speech to text (Whisper on the GPU) | ✅ working |
+| Voice replies (needs a speaker), picking | ⏳ planned |
 
 ## What you need
 
@@ -189,6 +190,36 @@ Check it all works. It should print `2.10.0 True` and a NumPy version starting w
 
 ```bash
 python3 -c "import ultralytics, torch, numpy; print(ultralytics.__version__, torch.__version__, torch.cuda.is_available(), numpy.__version__)"
+```
+
+### Step 10. Install Whisper (speech to text)
+
+The robot listens with the Logitech BRIO's built-in microphone (ALSA card 2). Check it's found:
+
+```bash
+arecord -l
+```
+
+It should list `card 2: BRIO`. Install Whisper and ffmpeg. The newer `coverage` and `scipy` replace old Ubuntu copies that clash with Whisper (see [troubleshooting](docs/troubleshooting.md#whisper-module-coverage-has-no-attribute-types)):
+
+```bash
+sudo apt install -y ffmpeg
+pip3 install openai-whisper "numpy<2"
+pip3 install -U "coverage>=7.2" "scipy<1.15" "numpy<2"
+```
+
+Test it: record 5 seconds while you speak, then turn it into text (the first run downloads the model, about 140 MB):
+
+```bash
+arecord -D plughw:2,0 -f S16_LE -r 16000 -c 1 -d 5 ~/mic_test.wav
+```
+
+```bash
+python3 -c "
+import whisper
+m = whisper.load_model('base', device='cuda')
+print('Heard:', m.transcribe('$HOME/mic_test.wav', fp16=True)['text'])
+"
 ```
 
 Setup is done.
