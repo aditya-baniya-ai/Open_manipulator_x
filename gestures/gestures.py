@@ -59,6 +59,10 @@ GESTURES = {
         (-0.8, 0.0, 0.0, 0.3, 2.5),  # turn right
         (-0.8, 0.0, 0.0, 0.3, 0.8),  # hold
     ]),
+    "d": ("my first gesture", [
+        (0.33, 0.24, 0.00, 0.00, 1.0),   # turn and lean forward
+        (0.33, 0.25, -1.38, 1.64, 1.5),  # lift the elbow, tilt the wrist
+    ]),
     "h": ("home", []),
 }
 

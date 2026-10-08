@@ -164,6 +164,7 @@ Press a key (no Enter needed):
 | `s` | shake (no) |
 | `b` | bow |
 | `l` | look around |
+| `d` | my first gesture (made with the pose recorder) |
 | `h` | go to the home pose |
 | `p` | print the current pose (for making your own gestures) |
 | `q` | quit |
