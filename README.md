@@ -356,6 +356,42 @@ Options (add them to the end of the command, like `sim:=true` above):
 
 To run the parts separately instead (for example to see each one's messages on its own), start the arm and camera as above, then `python3 ~/Documents/Open_manipulator_x/perception/detect.py` and `python3 ~/Documents/Open_manipulator_x/gestures/greet.py`, each in its own terminal. `greet.py` also takes `--see-time 2` (how long someone must be in view first).
 
+### Voice commands
+
+Say a gesture's name and the arm does it. It listens with the BRIO's microphone and uses Whisper to turn speech into text.
+
+First test the listening alone, without the arm. Stay quiet for the first second while it measures the room's noise, then speak:
+
+```bash
+python3 ~/Documents/Open_manipulator_x/voice/listen.py --test
+```
+
+It prints `Heard: ...` for each sentence, and `-> wave` (etc.) when it recognises a command. Then start the arm (or the simulation) and run it without `--test`:
+
+```bash
+python3 ~/Documents/Open_manipulator_x/voice/listen.py
+```
+
+| Say | Gesture |
+|---|---|
+| "wave", "hello", "hi" | wave |
+| "nod" | nod |
+| "shake" | shake |
+| "bow" | bow |
+| "look around" | look around |
+| "go home", "rest" | home |
+| the name of a move you saved | that move |
+
+Options:
+
+| Option | What it does |
+|---|---|
+| `--wake robot` | only act on sentences that contain "robot" (fewer accidental moves) |
+| `--threshold 800` | how loud speech must be to count; raise it in a noisy room |
+| `--model small` | more accurate Whisper model, but slower (`tiny`, `base`, `small`) |
+
+What it heard is published on `/voice_text`.
+
 ### Check the joint angles (any terminal)
 
 ```bash
@@ -464,6 +500,8 @@ gestures/
   greet.py             waves automatically when the camera sees a person
 perception/
   detect.py            live object detection from the camera (YOLO / YOLO-World)
+voice/
+  listen.py            voice commands: say "wave", "bow", ... and the arm does it
 launch/
   greeter.launch.py    starts the whole greeter robot with one command
 dependencies.repos     list of ROBOTIS code to download (used in Step 5)
