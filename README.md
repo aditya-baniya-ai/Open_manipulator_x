@@ -10,8 +10,8 @@ A table robot built from a ROBOTIS OpenMANIPULATOR-X arm and an NVIDIA Jetson Or
 |---|---|
 | Arm test and greeting on the OpenCR (Arduino) | ✅ working |
 | ROS 2 Humble on the Jetson | ✅ installed |
-| Arm controlled through ROS 2 | 🚧 in progress |
-| Wave gesture in ROS 2 | 🚧 written, not tested yet |
+| Arm controlled through ROS 2 | ✅ working |
+| Wave gesture in ROS 2 | ✅ working |
 | Camera, voice, picking | ⏳ planned |
 
 ## What's in this repo

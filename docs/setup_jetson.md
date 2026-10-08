@@ -20,7 +20,7 @@ Every step to set up the Jetson and run the arm with ROS 2, in order.
 | 5. `.bashrc` + udev rules | ⏳ |
 | 6. Arm launched through ROS 2 | ✅ arm_controller active, gripper moves |
 | 7. `/joint_states` + keyboard teleop test | ⏳ |
-| 8. Wave gesture | ⏳ |
+| 8. Wave gesture | ✅ arm waves through ROS 2 |
 
 ## 1. Install ROS 2 Humble
 
