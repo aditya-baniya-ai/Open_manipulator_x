@@ -8,14 +8,15 @@ Or start the arm and the window together:
     ../launch/gestures.sh --gui          (add --sim for the simulated arm)
 """
 
+import math
 import signal
 import tkinter as tk
 
 import rclpy
 
 from gestures import (
-    GESTURES, GRIPPER, Gesturer, jog, key_problem, load_saved, move_gripper,
-    record_pose, run_gesture, save_recording,
+    GESTURES, GRIPPER, JOINTS, Gesturer, catch_up, jog, key_problem, load_saved,
+    move_gripper, record_pose, run_gesture, save_recording,
 )
 
 JOINT_NAMES = ["Base", "Shoulder", "Elbow", "Wrist"]
@@ -41,13 +42,17 @@ class App:
         joints = tk.LabelFrame(root, text="Move joints (hold to keep moving)",
                                font=FONT, padx=8, pady=8)
         joints.pack(fill="x", padx=10, pady=4)
+        self.angles = []  # live angle of each joint, in degrees
         for i, name in enumerate(JOINT_NAMES):
             tk.Label(joints, text=name, font=FONT, width=9, anchor="w").grid(row=i, column=0)
-            for col, (label, direction) in enumerate([("−", -1), ("+", 1)], start=1):
+            for col, (label, direction) in enumerate([("-", -1), ("+", 1)], start=1):
                 tk.Button(joints, text=label, font=BIG, width=4,
                           repeatdelay=300, repeatinterval=100,
                           command=lambda j=i, d=direction: jog(self.node, j, d),
                           ).grid(row=i, column=col, padx=4, pady=2)
+            angle = tk.Label(joints, text="", font=FONT, width=7, anchor="e")
+            angle.grid(row=i, column=3, padx=(8, 0))
+            self.angles.append(angle)
 
         # Gripper
         gripper = tk.LabelFrame(root, text="Gripper", font=FONT, padx=8, pady=8)
@@ -82,7 +87,11 @@ class App:
         self.spin()
 
     def spin(self):
-        rclpy.spin_once(self.node, timeout_sec=0.0)
+        # Handle every waiting message, then show the latest joint angles
+        catch_up(self.node)
+        for label, joint in zip(self.angles, JOINTS):
+            if joint in self.node.joints:
+                label.config(text=f"{math.degrees(self.node.joints[joint]):+.0f}°")
         self.root.after(50, self.spin)
 
     def say(self, text, error=False):

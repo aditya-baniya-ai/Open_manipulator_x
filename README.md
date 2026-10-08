@@ -285,7 +285,7 @@ Then start the arm and the window together:
 ~/Documents/Open_manipulator_x/launch/gestures.sh --gui
 ```
 
-Add `--sim` to use the simulated arm (`gestures.sh --sim --gui`), or `--rviz` to also see the real arm move live in RViz (`gestures.sh --rviz --gui`). Hold a joint's `−` / `+` button to keep it moving. The window stops responding while a gesture plays, so gestures can't overlap. The Quit button also stops the arm.
+Add `--sim` to use the simulated arm (`gestures.sh --sim --gui`), or `--rviz` to also see the real arm move live in RViz (`gestures.sh --rviz --gui`). Hold a joint's `-` / `+` button to keep it moving; its live angle is shown next to the buttons. The window stops responding while a gesture plays, so gestures can't overlap. The Quit button also stops the arm.
 
 ### Option B: Move each joint with the keyboard (Terminals 2 and 3)
 
@@ -474,7 +474,7 @@ Pose the arm, save each pose, then replay them. Do this in the simulation first.
    ```
 5. Press your key, and watch it in RViz. When it looks right, press `q`, start the real arm with `~/Documents/Open_manipulator_x/launch/gestures.sh`, and press your key.
 
-Prefer buttons? Start with `gestures.sh --sim --gui` instead: move the joints with `−` / `+`, click **Add pose** for each pose, then type a name and a letter and click **Save move**. Your move appears as a new button.
+Prefer buttons? Start with `gestures.sh --sim --gui` instead: move the joints with `-` / `+`, click **Add pose** for each pose, then type a name and a letter and click **Save move**. Your move appears as a new button.
 
 | Key | While recording |
 |---|---|

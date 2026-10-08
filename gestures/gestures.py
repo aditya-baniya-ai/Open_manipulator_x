@@ -35,7 +35,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
 from control_msgs.action import FollowJointTrajectory, GripperCommand
-from trajectory_msgs.msg import JointTrajectoryPoint
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from sensor_msgs.msg import JointState
 from builtin_interfaces.msg import Duration
 
@@ -106,6 +106,8 @@ class Gesturer(Node):
             self, FollowJointTrajectory, "/arm_controller/follow_joint_trajectory"
         )
         self.gripper = ActionClient(self, GripperCommand, "/gripper_controller/gripper_cmd")
+        # Joint nudges go straight to the controller's topic: quicker than an action
+        self.jog_pub = self.create_publisher(JointTrajectory, "/arm_controller/joint_trajectory", 10)
 
     def on_joint_states(self, msg):
         self.joints.update(zip(msg.name, msg.position))
@@ -135,8 +137,8 @@ def build_trajectory(base, moves):
 
 
 def catch_up(node):
-    """Read any waiting /joint_states messages so the angles are current."""
-    for _ in range(20):
+    """Read any waiting messages (like /joint_states) so the angles are current."""
+    for _ in range(50):
         rclpy.spin_once(node, timeout_sec=0.0)
 
 
@@ -223,13 +225,18 @@ def jog(node, joint, direction):
     catch_up(node)
     if node.target is None:
         node.target = [node.joints[j] for j in JOINTS]
+    now = node.target[joint]
     low, high = LIMITS[joint]
-    node.target[joint] = min(high, max(low, node.target[joint] + direction * JOG_STEP))
+    # Stop at the limit, but never push a joint the other way (it may start past it)
+    if direction < 0:
+        node.target[joint] = max(now - JOG_STEP, min(now, low))
+    else:
+        node.target[joint] = min(now + JOG_STEP, max(now, high))
 
-    goal = FollowJointTrajectory.Goal()
-    goal.trajectory.joint_names = JOINTS
-    goal.trajectory.points = [point(list(node.target), JOG_TIME)]
-    rclpy.spin_until_future_complete(node, node.client.send_goal_async(goal))
+    msg = JointTrajectory()
+    msg.joint_names = JOINTS
+    msg.points = [point(list(node.target), JOG_TIME)]
+    node.jog_pub.publish(msg)
 
 
 def run_gesture(node, moves):
