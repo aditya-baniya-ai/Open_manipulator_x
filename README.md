@@ -246,12 +246,12 @@ Pose the arm, save each pose, then replay them. Do this in the simulation first.
    That's (base turn, shoulder, elbow, wrist, seconds to get there), in radians.
 6. Open `gestures/gestures.py`, and add your lines to the `GESTURES` list under a new key:
    ```python
-   "d": ("my dance", [
+   "m": ("my dance", [
        (0.20, 0.45, -0.20, 0.61, 1.0),
        (-0.30, 0.10, 0.30, -0.40, 0.8),
    ]),
    ```
-   Change the last number to make a move faster or slower. Don't use a key that's taken (`w n s b l h p q`).
+   Change the last number to make a move faster or slower. Don't use a key that's taken (`w n s b l d h p q`).
 7. Restart `gestures.py`, press your key, and watch it in RViz. When it looks right, try it on the real arm.
 
 ### Get the latest code
