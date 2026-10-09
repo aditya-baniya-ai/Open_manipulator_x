@@ -5,8 +5,8 @@ Makerspace ONLY from this file, so keep it accurate. Edit it freely: plain sente
 one fact per line. Restart chat.py to load changes.
 
 The whole file goes into every prompt, so keep it focused: chat.py gives the model
-room for about 8,000 tokens (num_ctx), and this file should stay under about 5,000
-(roughly 20,000 characters).
+room for about 12,000 tokens (num_ctx), and this file should stay under about 7,000
+(roughly 28,000 characters). If it grows past that, raise num_ctx in chat.py too.
 
 ## About Robo
 
@@ -33,134 +33,188 @@ room for about 8,000 tokens (num_ctx), and this file should stay under about 5,0
 
 ## Ingram Hall Makerspace: overview
 
-Sources: engineering.txst.edu/makerspace.html and its pages on access, rates, the
-training guide and instructional videos (checked October 2026), plus news articles
-named below.
+Sources: engineering.txst.edu/makerspace.html, its access, rates, training, forms and
+documents pages, the Makerspace's Policies and Procedures, New User SOP, 3D printing
+SOPs and xTool SOP (2026 versions), Senior Design Day pages, and news articles (checked
+October 2026).
 
 - The Ingram Hall Makerspace (IHM) is the Ingram School of Engineering's fabrication facility. Its motto is "Built by Bobcats, For Bobcats."
 - It describes itself as "where imagination meets industrial-grade reality": a hands-on space with the latest manufacturing technology, for prototyping anything from simple concepts to complex engineering systems.
 - It is an 11,000 square foot facility. There are other makerspaces on campus, but IHM is built for larger, more precise, harder projects that need more than a desktop 3D printer.
 - It is an academic makerspace: the goal is not to turn students into machinists or welders, but into innovative thinkers and creative makers who can safely run real equipment.
-- The Makerspace rooms are Ingram Hall 1201, 1202 and 1202A to 1202C. The front desk is in room 1201.
 - Hours: Monday to Friday, 8 AM to 5 PM.
-- Email: ingrammakerspace@txstate.edu. Questions can also be asked in person in Ingram Hall 1201.
+- Email: ingrammakerspace@txstate.edu. In person: Ingram Hall room 1201.
+- Everyone enters through the front doors of the PawPrint Studio, at the first floor lobby of Ingram Hall. Entering through side rooms is not allowed.
+- The Makerspace staff members are called MSTs. Ask an MST for help with machines, materials or trainings.
+- The front desk kiosk is self-service, not staffed. It is where you register your TXST ID card.
+- Only TXST students, staff, faculty and authorized guests may enter. A TXST ID card is needed to get in.
 - People walking past can watch the work through the Makerspace's big windows.
 
-## The zones of the Makerspace
+## The rooms and zones
 
-- PawPrint Studio: the rapid prototyping zone, with 3D printers, laser cutters and engravers, and electronics workbenches. It is a great place to start.
-- Industrial Space: professional-grade CNC machines for high-output, high-precision manufacturing, such as Haas CNC mills and a Haas CNC lathe, manual mills and lathes, and waterjet cutters.
-- Welding bay: a dedicated area for structural metal fabrication.
-- Woodworking bay: a dedicated area for traditional woodworking.
+- PawPrint Studio (Ingram Hall 1201): the rapid prototyping zone and the entrance. It has the 3D printers, the xTool laser cutters and electronics workbenches. It is a great place to start.
+- PawPrint Studio has no protective equipment rules, and food and drinks are allowed there as long as they are away from equipment and you clean up.
+- Industrial Area (Ingram Hall 1202): professional-grade machines, like the Haas CNC mills and lathe, manual mills and lathes, waterjets and the plasma table.
+- Side rooms 1202A to 1202D connect to the Industrial Area. There is also a woodshop and a welding bay.
+- Project Work Room (Ingram Hall 1202D): project tables on the right side for short-term project work. The left side is a Mechanical Engineering classroom area. It also has a Kardex vertical lift storage machine, with trays you can rent each month through FOM.
 - Teaching labs attached to the Makerspace include Senior Design Fabrication, CIM and Instrumentation, Composites, and Advanced Additive Manufacturing.
-- The Makerspace also has a PCB maker for making circuit boards, and an assortment of hand tools.
 
-## Projects and who uses the Makerspace
+## Safety rules
 
-- The Makerspace is the main fabrication hub for the student organizations Bobcat Racing, Bobcat Aerospace, and the IEEE Robotics and Automation Society.
-- Bobcat Racing is Texas State's Formula SAE team. Students design, build and race a small formula-style race car against university teams from around the world. The team runs like a small car company, with engineering, business and sponsorship roles, so students of any major can help. Contact: bobcatracing@txstate.edu.
-- Bobcat Racing was revived in 2021 after COVID, and builds its car in the Makerspace. Research engineer Abhimanyu Sharotry has been its faculty advisor since 2022.
-- Bobcat Aerospace is Texas State's first and largest student high-power rocketry club, founded in fall 2021. It builds rockets for competitions like the Spaceport America Cup in New Mexico, where rockets try to fly as close as possible to 10,000 feet, carry a payload and be recovered safely. Any major can join.
-- The IEEE Robotics and Automation Society student chapter builds robotics projects in the Makerspace.
-- Senior design (capstone) is one of the biggest users: nearly all senior design projects are built, stored and developed in the Makerspace, and successful ones are often displayed near the entrance.
-- Classes use it too, for example the CAD/CAM class, where students program CNC mills and then run their own programs on the machines.
-- Faculty research projects, and students' personal projects, also use the Makerspace.
-- Workshops have been held for new students, where groups make a small custom project with a laser cutter, laser engraver or 3D printer.
+- In the Industrial Area you must wear safety glasses, long pants, a sleeved shirt and closed-toe shoes at all times, even just walking through. No sandals or flip-flops, and shirts may not show shoulders or midriff.
+- Bring your own safety glasses. People without the right clothing will be turned away.
+- Tie back long hair and loose clothing, and remove jewelry, before running any machine.
+- No food or drinks anywhere in the Industrial Area or near machines.
+- Never leave a machine running unattended. 3D printers are the only exception.
+- Only use machines you are trained and approved for, and follow each machine's Standard Operating Procedure (SOP).
+- Check a machine before using it. Report anything broken to staff by email or in FOM, and never bypass safety guards.
+- No weapons, or anything that looks like a weapon, may be made in the Makerspace.
+- Report every accident or injury to staff, even small ones. For a fire or serious injury, call 911 and tell staff.
+- Know where the fire extinguishers, first aid kits, eyewash stations and exits are. One fire extinguisher is at the entrance, between rooms 1201A and 1201B.
+- After using a machine: check it back in on FOM, turn it off, clean up, and put tools back.
+- Items left outside storage areas, or on project tables without a reservation, may be thrown away.
+- No running or horseplay, and never prop doors open or let anyone in.
 
-## How to get access
+## How to get access, step by step
 
-- Access is managed through an online system called FOM, at fom.engineering.txstate.edu. FOM is used to sign up, take the policy quiz, track trainings and reserve machines.
+- Access is managed through an online system called FOM (Facility Online Manager), at fom.engineering.txstate.edu. FOM is used to sign up, take quizzes, track trainings, reserve machines and turn them on.
 - Ingram School of Engineering program directors and staff get badge access directly, with no request needed.
-- Everyone else gets access through one of four paths: research, coursework or senior capstone, a student organization, or a personal project.
-- Step one for everyone: log in to FOM once with your TXST NetID. Pick the discipline closest to your field. If your supervisor isn't listed, pick "Bobcat, Boko".
-- Everyone must sign the Ingram Hall Makerspace Participation Agreement, renewed every academic year (September 1 to August 31).
-- Most users also sign a Release of Liability (renewed every year) and a Photograph Release (one time only).
-- Then you complete the FOM onboarding: the required forms, the mandatory policy quiz, and linking your student ID card at the front desk kiosk so it opens the doors.
-- For a class or senior design team: the instructor requests a course account in FOM with the Course Usage Request or Senior Capstone Request form, then adds students. Students just log in to FOM once and ask their instructor.
-- For research: the faculty advisor (the PI) submits a Research Usage Request form, and then adds students and other researchers to the project in FOM.
-- For a student organization: an officer or faculty advisor submits a Student Organization Usage Request form. Then the president adds members to the roster in FOM.
-- For a personal project: you request your own account with the Personal Project Usage Request form, complete the trainings, and pay for materials and machine time. A faculty or staff mentor signs the form too.
-- New accounts usually take about one business day to set up after all forms are signed.
-- People must be logged in to FOM at least once before anyone can add them to a course, research project or organization.
+- Step 1: read the Makerspace Policies and Procedures on the Makerspace website.
+- Step 2: sign the Ingram Hall Makerspace Participation Agreement on the Makerspace forms page. It is renewed every academic year (September 1 to August 31).
+- Step 3: for walk-in use, student organizations or personal projects, also sign the Release of Liability (renewed every year, with a separate version for people under 18) and the Photograph Release (one time only).
+- Step 4: log in to FOM with your TXST NetID and Duo. Pick any discipline. Pick your instructor or research advisor as your supervisor. If they aren't listed, you can pick "Bobcat, Boko", but that account can't use equipment until someone adds you.
+- Step 5: in FOM, click "Request Access to New Resource" and take the Makerspace Policy Quiz. You need 100 percent, but there's no time limit and you can retry as many times as you like.
+- Step 6: register your TXST ID card at the self-service kiosk at the Makerspace entrance: log in to FOM there, open My Profile, click the User ID Card field, and tap your card on the scanner.
+- Step 7: request access to the PawPrint Studio room in FOM. Staff take about two business days to process your forms.
+- To use machines, you also need a financial account in FOM, which depends on why you're there.
+- For a class or senior design team: the instructor requests a course account with the Course Usage Request or Senior Capstone Request form, then adds students. Students just log in to FOM once and ask their instructor.
+- For research: the faculty advisor (the PI) submits a Research Usage Request form, and then adds students and researchers in FOM.
+- For a student organization: an officer or faculty advisor submits a Student Organization Usage Request form. Then the president adds members in FOM.
+- For a personal project: you submit the Personal Project Usage Request form yourself, with a faculty or staff mentor, and pay for machine time and materials.
+- New accounts usually take about one business day to set up after everyone signs.
+- You must log in to FOM at least once before anyone can add you to a course, project or organization.
 
-## Training before using the machines
+## Training for each machine
 
-- Every machine has its own training requirements. The Makerspace's Equipment Access and Training Guide page has an interactive dashboard and flowcharts that show which trainings each machine needs.
-- Safety comes first: users complete a safety certification and the FOM policy quiz before using any equipment.
-- Free online courses recommended by the Makerspace include: Additive Manufacturing: Optimizing 3D Prints; Understanding Personal Protective Equipment; Learning Mastercam (CNC programming); and Introduction to Mill and Lathe Operation.
-- For the Haas CNC machines, the Makerspace points to the Haas Certification Program, Haas's free online training at learn.haascnc.com.
-- Instructional videos on the Makerspace website cover FOM onboarding and 3D printing in the PawPrint Studio.
-- If you're not sure what training you need, ask the Makerspace staff at the front desk or email ingrammakerspace@txstate.edu.
+- In FOM, each machine shows the trainings it needs. If something is missing, FOM tells you which quiz or certificate to complete first.
+- All FOM quizzes need a perfect score, with unlimited attempts. The study material is in the Documents tab in FOM.
+- FOM policy quizzes must be renewed every 150 days.
+- In-person machine training expires if you don't use that machine for 180 days. Every use resets the clock.
+- Online certificates, like LinkedIn Learning, never expire for training purposes. LinkedIn Learning is free for TXST students, faculty and staff. Upload certificates with the online certificate upload form on the Makerspace forms page.
+- Prusa Core One and Prusa MINI printers: the Fused Filament Fabrication quiz in FOM, plus the LinkedIn Learning course "Additive Manufacturing: Optimizing 3D Prints".
+- Prusa XL and the multi-material Core One: those two, plus the Multi-Material FFF quiz.
+- xTool P2S laser cutters: the Makerspace Policy Quiz, PawPrint Studio access, and the xTool quiz.
+- Industrial Area: you first need PawPrint Studio access and the Industrial Area quiz.
+- Industrial machines, like the lathes, need in-person training with staff. Request the machine in FOM and send a message with your class or project and your available times to schedule a session.
+- Other recommended courses: Understanding Personal Protective Equipment, Learning Mastercam, and Introduction to Mill and Lathe Operation on LinkedIn Learning. For the Haas CNC machines, there's the free Haas Certification Program at learn.haascnc.com.
+- The Makerspace website has an Equipment Training Guide with flowcharts and an interactive dashboard, and instructional videos on FOM onboarding and 3D printing.
 
 ## 3D printing in the PawPrint Studio
 
-- 3D printing is one of the easiest ways to start at the Makerspace. It happens in the PawPrint Studio.
-- How to start 3D printing: get FOM access, complete the 3D printing safety certification and the FOM quiz, reserve a printer in FOM, log in to the printer with your NetID, upload your G-code file, and then watch your print on the live camera feed.
-- G-code is the file of instructions a 3D printer follows. You make it by slicing a 3D model, for example with PrusaSlicer.
-- Prusa Core One: an enclosed Prusa 3D printer with a print area of about 25 by 22 by 27 centimeters. The enclosure keeps heat in, which helps with materials like PETG, ASA and ABS. You can buy Makerspace filament for it, or bring your own filament (BYOF).
-- Prusa MINI: a small, reliable Prusa printer with a print area of about 18 by 18 by 18 centimeters, good for small parts and first prints.
-- Prusa XL: a large Prusa printer with a print area of about 36 by 36 by 36 centimeters. It can have several print heads, so one print can use several colors or materials.
-- Markforged Mark Two: an industrial composite 3D printer. It prints a strong nylon-and-carbon material called Onyx, and can lay continuous strands of carbon fiber, Kevlar or fiberglass inside the part, making parts strong enough to replace some aluminum parts. Its print area is about 32 by 13 by 15 centimeters.
-- Prints on the Prusa printers use PLA filament from the Makerspace, which costs 2 cents per gram.
+- The PawPrint Studio has 19 Prusa 3D printers: 12 Prusa Core One printers, one more Core One for bring-your-own-filament (BYOF), 2 Prusa MINI printers, and 4 Prusa XL printers. There is also a multi-material Core One.
+- Prusa Core One: an enclosed printer with a build area of about 25 by 22 by 27 centimeters. It is the main workhorse printer.
+- Prusa MINI: a small printer, about 18 by 18 by 18 centimeters, good for small parts.
+- Prusa XL: a large printer, about 36 by 36 by 36 centimeters, with 5 print heads, so one print can use up to five colors or materials.
+- Multi-material Core One: a Core One with a multi-material unit (MMU) for multi-color prints. Only staff may load its filament.
+- Filament: the regular printers only use PLA supplied by the Makerspace, at 2 cents per gram. The BYOF printer uses only your own filament, of any type the printer can handle. Ask an MST about material compatibility.
+- Step 1, slice: open Orca Slicer on a Makerspace computer, start a new project and add your STL or 3MF file. Pick the right printer and the "PawPrint Studio Default" settings, set the material to PLA, and use auto orient or lay on face so the part sits flat. Click Slice Plate, note the print time and filament grams, and export the G-code file.
+- Step 2, reserve: in FOM, request access to a printer, open its calendar and click a start time. Choose your financial account, and set the end time to the slicer's print time plus 45 minutes for warm-up and cleanup. Enter the grams of filament.
+- Step 3, log on: click your reservation in FOM and press Logon. This turns the printer on. If you don't log on within 30 minutes of your start time, the reservation is cancelled.
+- Step 4, print: on the TXST network, go to 3dprint.engineering.txstate.edu and log in with your NetID. Click your printer, check the bed is clear and there's enough filament, upload your G-code, load it, and press Print.
+- Step 5, watch: most failures happen in the first 30 minutes, so stay and watch the start. After that, you can leave and watch on the live camera feed.
+- Step 6, finish: take your part off by gently flexing the build plate. Never use tools on the print bed. Clean the plate, put it back, then press Logoff in FOM, which turns the printer off.
+- Printers turn off automatically 4 hours after your reserved end time, and the next person with a reservation can log you off, so set your time correctly. You can extend if no one is booked after you.
+- You may reserve several printers at once. Files on the printers are deleted weekly, so keep your own copies.
+- There is a 30-minute minimum charge for every print.
 
-## The machines, one by one
+## Laser cutting with the xTool P2S
+
+- The PawPrint Studio has two xTool P2S lasers. Each is a 55 watt desktop CO2 laser cutter and engraver.
+- They cut, score and engrave wood, acrylic, cardboard, leather and similar materials.
+- How it works: draw a sketch in a CAD program like SolidWorks and save it as an SVG or DXF file. Open xTool Studio, import the file, choose the bed type (usually the honeycomb panel) and your material, and mark each line as cut, score or engrave.
+- Log on to the laser in FOM, which turns it on and calibrates it. Load your material, hold it down with the magnetic clips, click Start, and press the button on the laser.
+- Keep the lid closed the whole time and stay with the machine. Some smoke is normal, but a flame is not.
+- If a fire starts: stop the job, keep the lid closed, and tell staff. The emergency stop button is on the right side of the machine.
+- Never cut PVC, vinyl or other chlorine plastics, because they release toxic chlorine gas. Never put mirrors or polished metal inside, and never cut a material you can't identify.
+- When done, wait a couple of minutes with the lid closed for the fumes to clear, then log off in FOM and clean up.
+
+## The other machines
 
 These descriptions combine the Makerspace's machine list with the manufacturers'
 general specifications. The exact setup of each machine here may differ.
 
-- Haas VF-2: a 3-axis vertical CNC milling machine, an industry-standard machine that cuts parts out of metal or plastic blocks by moving a spinning cutter left-right, forward-back and up-down under computer control. Its working travel is about 30 by 16 by 20 inches.
-- Haas VF-3, set up for 5-axis machining: a larger Haas vertical CNC mill. With 5 axes, the part can also tilt and rotate, so complex shapes can be cut from many sides in one setup.
-- Haas ST-20Y: a CNC lathe (turning center). It spins the material and cuts round parts like shafts and bushings. Its Y-axis and live tooling also let it drill and mill features off-center, so many parts are finished in one machine.
-- Tormach PCNC 440: a compact CNC mill, smaller and easier to learn on than the Haas machines, good for small metal and plastic parts.
-- Manual mill and manual lathe: traditional machines that a person controls with hand wheels instead of a computer. They teach the basics of machining and are great for quick, simple parts.
-- Shark CNC router: a computer-controlled router for cutting and carving wood, plastic and foam sheets, like signs, panels and furniture parts.
-- WardJet waterjet: an industrial waterjet that cuts metal, stone, glass and plastics with a thin stream of extremely high-pressure water mixed with sand-like abrasive. It cuts without heat, so the material doesn't warp.
-- Wazer waterjet: a compact desktop waterjet, a smaller and simpler way to cut metal, glass, tile and plastic sheets. Its cutting area is about 12 by 18 inches.
-- Torchmate CNC plasma table: cuts steel and other metal sheets with a computer-guided plasma torch. It is fast for making brackets, plates and chassis parts.
-- Fiber laser: a laser built for marking and engraving metal, such as serial numbers, logos and labels.
-- xTool lasers: desktop laser cutters and engravers, used to cut and engrave wood, acrylic, leather, cardboard and other non-metal materials. They are the easiest lasers to start with.
-- Welding bay: welding stations for joining metal parts, used for frames, chassis and other structures. Welding needs special training and protective equipment.
-- Woodworking bay: tools for traditional woodworking, like cutting, shaping and sanding wood.
-- Electronics workbenches: benches with tools for soldering, building and testing circuits, for robotics and electronics projects.
+- Haas VF-2: a 3-axis vertical CNC mill, an industry-standard machine that cuts metal or plastic parts by moving a spinning cutter under computer control. Its travel is about 30 by 16 by 20 inches.
+- Haas VF-3, set up for 5-axis machining: a larger Haas mill where the part can also tilt and rotate, so complex shapes can be cut from many sides in one setup.
+- Haas ST-20Y: a CNC lathe that spins the material to cut round parts like shafts. Its Y-axis and live tooling can also drill and mill off-center features.
+- Tormach PCNC 440: a compact CNC mill, smaller and easier to learn on than the Haas machines.
+- Manual mills and Kingston manual lathes: traditional machines controlled by hand wheels. They teach the basics of machining.
+- Shark CNC router: cuts and carves wood, plastic and foam sheets.
+- WardJet waterjet: an industrial waterjet that cuts metal, stone, glass and plastic with ultra-high-pressure water mixed with garnet abrasive. It cuts without heat, so the material doesn't warp.
+- Wazer waterjet: a compact desktop waterjet for smaller sheets of metal, glass, tile and plastic.
+- Torchmate CNC plasma table: cuts steel sheet with a computer-guided plasma torch, fast for brackets and plates.
+- Fiber laser: a laser built for marking and engraving metal, like serial numbers and logos.
+- Markforged Mark Two: an industrial composite 3D printer. It prints a tough nylon-carbon material called Onyx, and can lay continuous carbon fiber, Kevlar or fiberglass inside parts, making them strong enough to replace some aluminum parts.
+- Welding bay: welding stations for metal frames, chassis and structures.
+- Woodshop: tools for traditional woodworking.
+- Electronics workbenches and a PCB maker for building circuits and circuit boards.
 
 ## How much it costs
 
-Prices from the Makerspace rates page (Spring 2026 rates). They may change, so check
-the rates page or ask staff for the latest. "Internal" rates are for class, research,
-senior design and student organization work billed to a TXST account. "External" rates
-are for everyone else. All rates are per hour, with a 30-minute minimum charge.
+From the Spring 2026 rates page. Prices can change, so check the rates page. Internal
+rates are for class, research, senior design and student organization work billed to
+a TXST account. External rates are for everyone else. Rates are per hour, with a
+30-minute minimum.
 
-- Prusa Core One with Makerspace filament: 1 dollar per hour internal, 1 dollar 50 external. Bring your own filament: 2 dollars internal, 3 dollars external.
-- Prusa MINI: 1 dollar per hour internal, 1 dollar 50 external.
-- Prusa XL: 2 dollars per hour internal, 3 dollars external.
-- Markforged Mark Two: 4 dollars per hour internal, 6 dollars external.
-- xTool lasers: 6 dollars per hour internal, 9 dollars external.
-- Fiber laser: 24 dollars per hour internal, 36 dollars external.
-- Shark CNC router: 15 dollars per hour internal, 22 dollars 50 external.
-- Wazer waterjet: 15 dollars per hour internal, 22 dollars 50 external.
-- WardJet waterjet: 43 dollars per hour internal, 65 dollars external.
-- Torchmate plasma table: 21 dollars per hour internal, 32 dollars external.
-- Manual mill: 17 dollars per hour internal, 26 dollars external.
-- Manual lathe: 19 dollars per hour internal, 29 dollars external.
-- Tormach PCNC 440: 19 dollars per hour internal, 29 dollars external.
-- Haas VF-2: 30 dollars per hour internal, 45 dollars external.
-- Haas VF-3 (5-axis): 31 dollars per hour internal, 47 dollars external.
-- Haas ST-20Y lathe: 32 dollars per hour internal, 48 dollars external.
-- Welding bay: 20 dollars per hour internal, 30 dollars external.
-- Materials: PLA filament costs 2 cents per gram. Markforged materials are charged by volume: Onyx 25 cents per cubic centimeter, fiberglass 1 dollar 60, Kevlar 2 dollars, high-strength high-temperature fiberglass 2 dollars, and carbon fiber 4 dollars per cubic centimeter.
-- Internal on-site use is capped at 450 dollars per month per project, class section, senior design group or research award, not counting materials. Student organizations get one cap per 15 registered members.
-- Students doing personal projects pay external rates, unless a faculty member sponsors the project as their mentor, which can qualify them for internal rates.
-- The Makerspace has an online e-commerce store for payments, linked from its website.
+- 3D printers, per hour internal: Prusa Core One 1 dollar, Core One BYOF 2 dollars, Prusa MINI 1 dollar, Prusa XL 2 dollars, Markforged Mark Two 4 dollars. External is 1.5 times that.
+- Lasers, per hour internal: xTool 6 dollars, fiber laser 24 dollars. External: 9 and 36 dollars.
+- CNC and cutting, per hour internal: Shark router 15, Wazer 15, Tormach 19, Torchmate 21, Haas VF-2 30, Haas VF-3 31, Haas ST-20Y 32, WardJet 43 dollars. External is about 1.5 times that.
+- Manual machines and welding, per hour internal: manual mill 17, manual lathe 19, welding bay 20 dollars. External: 26, 29 and 30 dollars.
+- Materials: PLA 2 cents per gram. Markforged: Onyx 25 cents, fiberglass 1 dollar 60, Kevlar 2 dollars, high-temperature fiberglass 2 dollars, and carbon fiber 4 dollars per cubic centimeter.
+- Internal on-site use is capped at 450 dollars a month per project, class section, senior design group or research award, not counting materials. Student organizations get one cap per 15 members.
+- Students on personal projects pay external rates, unless a faculty mentor sponsors the project, which can qualify them for internal rates.
+- Paying invoices by credit card adds a 3 percent fee. Unpaid balances can lead to an academic hold.
+- Please acknowledge the Ingram Hall Makerspace in papers and grant applications that used its equipment or staff.
+
+## Student organizations
+
+- The Makerspace is the main fabrication hub for Bobcat Racing, Bobcat Aerospace, and the IEEE Robotics and Automation Society.
+- Bobcat Racing is Texas State's Formula SAE team. Students design, build and race a small formula-style race car against university teams from around the world. It runs like a small car company, so students of any major can help. Contact: bobcatracing@txstate.edu.
+- Bobcat Racing was revived in 2021 after COVID and builds its car in the Makerspace. Its 2026 car uses a Yamaha FZ6 motorcycle engine.
+- Bobcat Aerospace is Texas State's first and largest high-power rocketry club, founded in fall 2021. It builds rockets for competitions like the Spaceport America Cup in New Mexico, aiming for about 10,000 feet. Any major can join.
+- The IEEE Robotics and Automation Society student chapter builds robotics projects in the Makerspace.
+
+## Projects happening now (fall 2026 senior design)
+
+- Nearly all senior design projects are built and stored in the Makerspace. Teams show their work at Senior Design Day at the end of every fall and spring semester, and great projects are displayed near the Makerspace entrance.
+- The Makerspace itself sponsors a project: a vibration and sound sensing system for the Makerspace's manual milling machines, to predict surface finish and tool wear.
+- A chip handling system for the Haas VF-2 mill, to remove and sort metal chips when switching materials.
+- A smart sediment trap that cleans garnet and dirt out of waterjet wastewater.
+- Two soft robotic grippers that pick up peaches without bruising them, for a Universal Robots UR7e collaborative robot arm. One uses inflatable silicone fingers and a camera, the other uses suction.
+- For Bobcat Racing: a new braking system with a test rig, and a final drive system for the 2026 car.
+- The C.A.T. Crawler, a rover drive system for NASA's Psyche asteroid mission.
+- A precision pesticide sprayer for an automated FarmBot vertical farm.
+- Several teams are designing new TXST T-shirt launchers for game days.
+- Others include a sit-to-stand trainer for physical therapy patients, and a training model of a stomach for doctors, sponsored by Boston Scientific.
+
+## Past projects (spring 2025 senior design)
+
+- A lunar concrete mixer that makes "moon bricks" from fake moon soil, sponsored by NASA MINDS and the Ingram Hall Makerspace.
+- The Artistic Automaton: a robot arm that draws with a pen, from a photo or from a phone app.
+- Other robots: an Artist Robot, a Push-Pull Bot, a Line Following Bot and the Speedy Liner.
+- Pleiades Electra, an antenna array that lets Texas State talk to satellites in low Earth orbit.
+- A radiation-tolerant laptop for space crews, and the Ouroboros guitar looper pedal.
+- A manufacturing team built critical parts for Bobcat Racing's 2025 race car.
+- Earlier, in a CAD/CAM class, students learned to program CNC mills and then ran their own programs on the machines.
+- The Makerspace has hosted workshops for new students, where groups made a small custom project with a laser cutter, laser engraver or 3D printer.
 
 ## People
 
-- The Makerspace has a team of about a dozen staff and student workers. The team is listed on the Makerspace website's "Our Team" page.
-- Abhimanyu Sharotry, a research scientist at the Ingram School of Engineering, is on the Makerspace team and studies digital twins and the simulation of manufacturing systems.
+- The Makerspace has a team of about a dozen staff and student workers, listed on the "Our Team" page of its website.
+- Abhimanyu Sharotry, a research scientist at the Ingram School of Engineering, is on the Makerspace team. He studies digital twins and the simulation of manufacturing systems, advises the soft robotic gripper teams, and has been Bobcat Racing's faculty advisor.
 - Brian Earle on the Makerspace team is known as "the Haas guy", the go-to person for the Haas CNC machines.
 
 ## Tips for visitors
 
-- Ask at the front desk in Ingram Hall 1201 for help with trainings, access or choosing a machine.
-- General shop safety: wear safety glasses and closed-toe shoes around machines. The Makerspace's own rules are in its Policies and Procedures, and its training list includes a course on personal protective equipment.
 - A great first project is a 3D print or a laser-cut design in the PawPrint Studio.
+- Start by reading the policies, signing the participation agreement and taking the Makerspace Policy Quiz in FOM.
 - The Makerspace accepts donations through the Texas State giving site, to help buy equipment for future engineers.
