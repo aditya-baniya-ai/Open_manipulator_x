@@ -8,8 +8,10 @@
 - Micro USB data cable
 - NVIDIA Jetson Orin NX 16GB (Engineering Reference Developer Kit), Ubuntu 22.04.5, 16 GB memory
 - Camera: Logitech BRIO (USB). Color picture is `/dev/video0`; `/dev/video2` is its infrared camera.
-- Microphone: the BRIO's built-in mic (ALSA card 2, `plughw:2,0`). The Jetson has no mic of its own.
-- Speaker: none yet. The Jetson has no speaker or headphone jack; sound goes out over HDMI/DisplayPort (monitor speakers) or a USB/Bluetooth speaker.
+- Microphone: the BRIO's built-in mic, `plughw:CARD=BRIO,DEV=0`. The Jetson has no mic of its own.
+- Speaker: a USB speaker ("USB PnP Audio Device"), `plughw:CARD=Device,DEV=0`. The Jetson has no speaker or headphone jack of its own.
+
+Sound card **numbers** change when USB audio devices are plugged in (the BRIO was card 2, then card 3 after adding the speaker), so always use the **names** above, not `plughw:2,0`. List them with `aplay -l` (speakers) and `arecord -l` (microphones).
 
 ## Servos
 

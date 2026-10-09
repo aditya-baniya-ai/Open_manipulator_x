@@ -226,13 +226,13 @@ python3 -c "import ultralytics, torch, numpy; print(ultralytics.__version__, tor
 
 ### Step 10. Install Whisper (speech to text)
 
-The robot listens with the Logitech BRIO's built-in microphone (ALSA card 2). Check it's found:
+The robot listens with the Logitech BRIO's built-in microphone. Check it's found:
 
 ```bash
 arecord -l
 ```
 
-It should list `card 2: BRIO`. Install Whisper and ffmpeg. The newer `coverage` and `scipy` replace old Ubuntu copies that clash with Whisper (see [troubleshooting](docs/troubleshooting.md#whisper-module-coverage-has-no-attribute-types)):
+It should list a card called `BRIO` (its number can change when other USB audio devices are plugged in, so the scripts find it by name). Install Whisper and ffmpeg. The newer `coverage` and `scipy` replace old Ubuntu copies that clash with Whisper (see [troubleshooting](docs/troubleshooting.md#whisper-module-coverage-has-no-attribute-types)):
 
 ```bash
 sudo apt install -y ffmpeg
@@ -243,7 +243,7 @@ pip3 install -U "coverage>=7.2" "scipy<1.15" "numpy<2"
 Test it: record 5 seconds while you speak, then turn it into text (the first run downloads the model, about 140 MB):
 
 ```bash
-arecord -D plughw:2,0 -f S16_LE -r 16000 -c 1 -d 5 ~/mic_test.wav
+arecord -D plughw:CARD=BRIO,DEV=0 -f S16_LE -r 16000 -c 1 -d 5 ~/mic_test.wav
 ```
 
 ```bash

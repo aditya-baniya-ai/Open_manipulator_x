@@ -80,7 +80,7 @@ pip3 install -U "coverage>=7.2" "scipy<1.15" "numpy<2"
 Record, then measure how loud the recording is:
 
 ```bash
-arecord -D plughw:2,0 -f S16_LE -r 16000 -c 1 -d 5 ~/mic_test.wav
+arecord -D plughw:CARD=BRIO,DEV=0 -f S16_LE -r 16000 -c 1 -d 5 ~/mic_test.wav
 python3 -c "
 import wave, numpy as np
 w = wave.open('$HOME/mic_test.wav')

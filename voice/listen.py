@@ -15,7 +15,8 @@ Options:
     --wake robot     only act on sentences that contain this word
     --threshold 800  how loud speech must be to start listening (default: measured
                      from the room's background noise when it starts)
-    --mic plughw:2,0 which microphone to use (default: the Logitech BRIO)
+    --mic plughw:CARD=BRIO,DEV=0   which microphone to use (default: the Logitech BRIO,
+                                 found by name, so card numbers don't matter)
 
 Publishes what it heard on /voice_text (std_msgs/String).
 """
@@ -114,8 +115,8 @@ def main():
     parser.add_argument("--wake", help="only act on sentences containing this word")
     parser.add_argument("--threshold", type=float,
                         help="loudness that counts as speech (default: measured)")
-    parser.add_argument("--mic", default="plughw:2,0",
-                        help="microphone device (default plughw:2,0, the BRIO)")
+    parser.add_argument("--mic", default="plughw:CARD=BRIO,DEV=0",
+                        help="microphone device (default plughw:CARD=BRIO,DEV=0, the BRIO)")
     parser.add_argument("--model", default="base",
                         help="Whisper model: tiny, base, small (default base)")
     args, ros_args = parser.parse_known_args()
