@@ -216,6 +216,9 @@ class App:
         self.live_button.grid(row=0, column=1, padx=4, pady=2)
         tk.Button(buttons, text="Stop talking", font=FONT, width=10,
                   command=self.robo.stop_talking).grid(row=0, column=2, padx=4, pady=2)
+        tk.Button(buttons, text="Forget saved answers", font=SMALL,
+                  command=self.forget_answers).grid(row=1, column=0, columnspan=3,
+                                                    sticky="w", padx=4, pady=(2, 0))
         tk.Label(box, text="Talk once: one question and answer.   "
                            "Live: keeps listening until you turn it off.",
                  font=SMALL, fg=GREY).pack(anchor="w", pady=(2, 0))
@@ -342,37 +345,32 @@ class App:
                 self.post(lambda h=heard: self.add_line("You", h))
                 self.post(lambda: self.voice_says("Thinking ..."))
 
-                # Speak each sentence as soon as the LLM writes it; start the gesture
-                # with the first sentence (the arm only moves on the window's thread)
-                self.robo.start_talking()
-                said, key, moved = [], None, None
+                # Answer from memory if asked before; otherwise speak each sentence as
+                # soon as the LLM writes it. The gesture starts with the first sentence
+                # (the arm only moves on the window's thread).
+                moved = None
+
+                def first_sentence(sentence):
+                    nonlocal moved
+                    self.post(lambda: self.voice_says("Talking ..."))
+                    key = choose_gesture(heard, sentence, GESTURES)
+                    if key:
+                        moved = self.move_in_window(*GESTURES[key])
+
                 try:
-                    for sentence in self.robo.answer_stream(heard):
-                        if self.stop_voice.is_set() or self.robo.cancel.is_set():
-                            break  # Live turned off, or Stop talking
-                        said.append(sentence)
-                        if len(said) == 1:
-                            self.post(lambda: self.voice_says("Talking ..."))
-                            key = choose_gesture(heard, sentence, GESTURES)
-                            if key:
-                                moved = self.move_in_window(*GESTURES[key])
-                        self.robo.add_sentence(sentence)
+                    said, from_memory, written = self.robo.respond(
+                        heard, on_first_sentence=first_sentence, stop=self.stop_voice)
                 except Exception as error:  # Ollama not running, timeout, ...
                     self.post(lambda e=error: self.voice_says(
                         f"Couldn't get an answer from the LLM: {e}", True))
-                    if not said:
-                        self.robo.done_talking()
-                        if not live:
-                            return
-                        continue
-                finally:
-                    self.robo.done_talking()
-                written = time.monotonic()
+                    if not live:
+                        return
+                    continue
                 self.post(lambda r=" ".join(said): self.add_line("Robo", r))
                 self.robo.wait_until_quiet()
                 if moved:
                     moved.wait()
-                self.post(lambda t=self.robo.timing(written): self.add_note(t))
+                self.post(lambda t=self.robo.timing(written, from_memory): self.add_note(t))
                 if not live or is_goodbye(heard):
                     break
         finally:
@@ -390,6 +388,14 @@ class App:
 
         self.post(move)
         return done
+
+    def forget_answers(self):
+        if self.robo.cache is None:
+            self.voice_says("No saved answers yet.")
+            return
+        count = len(self.robo.cache.entries)
+        self.robo.cache.clear()
+        self.voice_says(f"Forgot {count} saved answers. Robo will think them through again.")
 
     def add_note(self, text):
         """A small grey line in the transcript, like the timing of the last answer."""

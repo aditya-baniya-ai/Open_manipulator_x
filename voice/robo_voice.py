@@ -6,6 +6,8 @@ Used by chat.py (in the terminal) and gestures/gui.py (the control panel). Robo'
 personality is PERSONALITY below; its facts come from robo_knowledge.md.
 """
 
+import difflib
+import hashlib
 import io
 import json
 import os
@@ -13,10 +15,12 @@ import queue
 import re
 import subprocess
 import sys
+import shutil
 import tempfile
 import threading
 import time
 import urllib.request
+import uuid
 import wave
 from pathlib import Path
 
@@ -175,6 +179,100 @@ def is_goodbye(text):
     return "goodbye" in text or "bye bye" in text
 
 
+CACHE_DIR = Path.home() / ".cache" / "robo_answers"
+CACHE_SIZE = 200      # answers kept; the least recently used are dropped
+CACHE_MATCH = 0.9     # how similar a question must be to count as the same (0-1)
+# Words that don't change what's being asked
+FILLER = {"hey", "hi", "hello", "robo", "robot", "robert", "rob", "please", "can", "could",
+          "would", "you", "tell", "me", "about", "the", "a", "an", "so", "um", "uh", "okay",
+          "ok", "well", "now", "just"}
+# Follow-up questions depend on the conversation, so they're never answered from memory
+FOLLOW_UP = {"more", "that", "it", "this", "those", "these", "they", "them", "he", "she",
+             "again", "else", "why", "previous", "before", "last", "other"}
+
+
+def question_key(text):
+    """The question with case, punctuation and filler words removed."""
+    words = re.findall(r"[a-z0-9']+", text.lower().replace("what's", "what is"))
+    return " ".join(w for w in words if w not in FILLER)
+
+
+class AnswerCache:
+    """Remembers answers to recent and repeated questions, with their finished audio,
+    so asking again needs neither the LLM nor Piper. Stored in ~/.cache/robo_answers/.
+    Clears itself when Robo's facts, personality, model or voice change."""
+
+    def __init__(self, signature, folder=CACHE_DIR):
+        self.folder = Path(folder)
+        self.folder.mkdir(parents=True, exist_ok=True)
+        self.index_file = self.folder / "answers.json"
+        self.signature = signature
+        try:
+            data = json.loads(self.index_file.read_text())
+        except (OSError, ValueError):
+            data = {}
+        self.entries = data.get("entries", []) if data.get("signature") == signature else []
+        if not self.entries:
+            self.clear()  # remove audio left over from different facts or voice
+
+    def usable(self, question):
+        words = set(re.findall(r"[a-z']+", question.lower()))
+        return len(question_key(question)) > 0 and not words & FOLLOW_UP
+
+    def find(self, question):
+        """The saved answer to this question (or a very similar one), or None."""
+        if not self.usable(question):
+            return None
+        key = question_key(question)
+        best, score = None, 0.0
+        for entry in self.entries:
+            ratio = 1.0 if entry["key"] == key else \
+                difflib.SequenceMatcher(None, entry["key"], key).ratio()
+            if ratio > score:
+                best, score = entry, ratio
+        if best is None or score < CACHE_MATCH:
+            return None
+        if not all((self.folder / f).exists() for f in best["files"]):
+            self.entries.remove(best)  # audio missing: forget it
+            return None
+        best["uses"] += 1
+        best["last_used"] = time.time()
+        self.save()
+        return best
+
+    def new_file(self):
+        """A path for one sentence of a new answer's audio."""
+        return self.folder / f"{uuid.uuid4().hex}.wav"
+
+    def add(self, question, sentences, files):
+        if not self.usable(question) or not sentences:
+            return
+        key = question_key(question)
+        for old in [e for e in self.entries if e["key"] == key]:
+            self.remove(old)
+        self.entries.append({"question": question, "key": key, "sentences": sentences,
+                             "files": [Path(f).name for f in files], "uses": 1,
+                             "last_used": time.time()})
+        while len(self.entries) > CACHE_SIZE:
+            self.remove(min(self.entries, key=lambda e: e["last_used"]))
+        self.save()
+
+    def remove(self, entry):
+        self.entries.remove(entry)
+        for name in entry["files"]:
+            (self.folder / name).unlink(missing_ok=True)
+
+    def clear(self):
+        self.entries = []
+        for wav in self.folder.glob("*.wav"):
+            wav.unlink(missing_ok=True)
+        self.save()
+
+    def save(self):
+        self.index_file.write_text(json.dumps({"signature": self.signature,
+                                               "entries": self.entries}, indent=1))
+
+
 class RoboVoice:
     """Everything Robo needs to listen and talk.
 
@@ -192,6 +290,7 @@ class RoboVoice:
         self.cancel = threading.Event()  # set by stop_talking()
         self.first_sound = None  # when the current answer started playing
         self.heard_at = self.text_at = None  # when you stopped talking / it was transcribed
+        self.cache = None  # answers to recent questions, set up by load()
         self.piper = None    # the voice, once loaded
         self.loaded = False  # ready to listen and answer
         # The sound card's name, e.g. "Device" from plughw:CARD=Device,DEV=0
@@ -219,6 +318,10 @@ class RoboVoice:
         self.messages = [{"role": "system",
                           "content": PERSONALITY.format(decline=DECLINE, knowledge=knowledge)}]
         listen.SILENCE_END = PAUSE  # wait a little longer before deciding you've finished
+        # Saved answers are only valid for these exact facts, personality, model and voice
+        signature = hashlib.sha256("|".join([self.messages[0]["content"], self.model,
+                                             self.voice_path]).encode()).hexdigest()
+        self.cache = AnswerCache(signature)
 
         log("Warming up (so the first answer is quick) ...")
         self.warm_up()
@@ -306,15 +409,24 @@ class RoboVoice:
                                        daemon=True)
         self.player.start()
 
-    def add_sentence(self, text):
-        """Turn one sentence into speech and queue it (plays right after the one before)."""
+    def add_sentence(self, text, keep_as=None):
+        """Turn one sentence into speech and queue it (plays right after the one before).
+        keep_as: a file to save the audio in (for the cache); otherwise it's temporary."""
         if self.cancel.is_set() or self.sentences is None:
             return
-        handle, path = tempfile.mkstemp(prefix="robo_", suffix=".wav")
-        os.close(handle)
+        if keep_as is None:
+            handle, path = tempfile.mkstemp(prefix="robo_", suffix=".wav")
+            os.close(handle)
+        else:
+            path = str(keep_as)
         with wave.open(path, "wb") as wav_file:
             self.piper.synthesize_wav(text, wav_file)
-        self.sentences.put(path)
+        self.sentences.put((path, keep_as is None))
+
+    def add_recording(self, path):
+        """Queue audio that's already made (a saved answer); it's kept after playing."""
+        if not self.cancel.is_set() and self.sentences is not None:
+            self.sentences.put((str(path), False))
 
     def done_talking(self):
         """No more sentences in this answer."""
@@ -323,15 +435,66 @@ class RoboVoice:
 
     def _play_all(self, sentences):
         while True:
-            path = sentences.get()
-            if path is None:
+            item = sentences.get()
+            if item is None:
                 return
+            path, temporary = item
             if not self.cancel.is_set():
                 if self.first_sound is None:
                     self.first_sound = time.monotonic()
                 self.playing = subprocess.Popen(["aplay", "-q", "-D", self.speaker, path])
                 self.playing.wait()
-            os.remove(path)
+            if temporary:
+                os.remove(path)
+
+    def respond(self, heard, on_first_sentence=None, stop=None):
+        """Answer out loud: from memory if this was asked before, otherwise stream it from
+        the LLM (speaking each sentence as soon as it's written) and save it.
+
+        on_first_sentence(text) is called once Robo starts answering (e.g. to start a
+        gesture). stop (a threading.Event) or stop_talking() cuts it short.
+        Returns (sentences said, answered from memory?, when the answer was complete)."""
+        self.start_talking()
+        said, from_memory = [], False
+        try:
+            saved = self.cache.find(heard) if self.cache else None
+            if saved:
+                from_memory = True
+                for sentence, name in zip(saved["sentences"], saved["files"]):
+                    said.append(sentence)
+                    if len(said) == 1 and on_first_sentence:
+                        on_first_sentence(sentence)
+                    self.add_recording(self.cache.folder / name)
+                self.messages.append({"role": "user", "content": heard})
+                self.messages.append({"role": "assistant", "content": " ".join(said)})
+                self.messages[1:] = self.messages[1:][-2 * HISTORY:]
+            else:
+                files = []
+                keep = self.cache is not None and self.cache.usable(heard)
+                try:
+                    for sentence in self.answer_stream(heard):
+                        if self.cancel.is_set() or (stop is not None and stop.is_set()):
+                            break
+                        said.append(sentence)
+                        if len(said) == 1 and on_first_sentence:
+                            on_first_sentence(sentence)
+                        files.append(self.cache.new_file() if keep else None)
+                        self.add_sentence(sentence, keep_as=files[-1])
+                except Exception:
+                    for f in files:  # the LLM failed part way: don't keep its audio
+                        if f is not None:
+                            Path(f).unlink(missing_ok=True)
+                    raise
+                cut_short = self.cancel.is_set() or (stop is not None and stop.is_set())
+                if keep and not cut_short:
+                    self.cache.add(heard, said, files)
+                else:  # never save half an answer
+                    for f in files:
+                        if f is not None:
+                            Path(f).unlink(missing_ok=True)
+        finally:
+            self.done_talking()
+        return said, from_memory, time.monotonic()
 
     def say(self, text):
         """Start saying text on the speaker (doesn't wait)."""
@@ -355,9 +518,9 @@ class RoboVoice:
             self.sentences.put(None)
             self.player.join(timeout=3)
 
-    def timing(self, answer_done):
+    def timing(self, answer_done, from_memory=False):
         """A short summary of how long this exchange took, from when you stopped talking."""
-        parts = []
+        parts = ["from memory"] if from_memory else []
         if self.heard_at and self.text_at:
             parts.append(f"heard in {self.text_at - self.heard_at:.1f} s")
         if self.heard_at and self.first_sound:
@@ -382,5 +545,5 @@ class RoboVoice:
 
     def close(self):
         self.stop_talking()
-        if self.loaded:
+        if getattr(self, "mic_proc", None) is not None:
             self.mic_proc.kill()  # stop the mic recorder quietly

@@ -91,20 +91,12 @@ def main():
             print(f"You:   {heard}")
             if args.wake and args.wake.lower() not in heard.lower():
                 continue
-            # Speak each sentence as soon as the LLM writes it
-            robo.start_talking()
-            said = []
+            # From memory if asked before; otherwise spoken as soon as each sentence is written
             try:
-                for sentence in robo.answer_stream(heard):
-                    if robo.cancel.is_set():
-                        break  # cut off with Enter
-                    said.append(sentence)
-                    robo.add_sentence(sentence)
+                said, from_memory, written = robo.respond(heard)
             except Exception as error:  # Ollama not running, timeout, ...
                 print(f"  (couldn't get an answer from the LLM: {error})")
-            finally:
-                robo.done_talking()
-            written = time.monotonic()
+                continue
             if not said:
                 continue
             reply = " ".join(said)
@@ -115,7 +107,7 @@ def main():
             if node is not None and gesture:
                 run_gesture(node, GESTURES[gesture][1])
             robo.wait_until_quiet()
-            print(f"       ({robo.timing(written)})")
+            print(f"       ({robo.timing(written, from_memory)})")
             if is_goodbye(heard):
                 break
     except KeyboardInterrupt:
