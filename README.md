@@ -630,7 +630,7 @@ The first command just checks TensorRT is there (it comes with JetPack). The exp
 | `robo.sh --sim --busy-fps 20` | to measure | to measure |
 | `robo.sh --sim --busy-fps 25` | to measure | to measure |
 | `robo.sh --sim --busy-fps 25 --yolo yolo11n.engine` | to measure | to measure |
-| `robo.sh --sim --busy-fps 25 --yolo yolo11n.engine --imgsz 320` | to measure | to measure |
+| `robo.sh --sim --busy-fps 25 --yolo yolo11n_320.engine --imgsz 320` | to measure | to measure |
 
 (For `--imgsz 320` with the TensorRT model, export it at that size too: add `imgsz=320` to the export command, and rename the result, e.g. `mv ~/yolo11n.engine ~/yolo11n_320.engine`.)
 
