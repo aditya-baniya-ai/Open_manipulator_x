@@ -521,7 +521,7 @@ First test the talking alone, without the arm. Stay quiet for the first second w
 python3 ~/Documents/Open_manipulator_x/voice/chat.py --test
 ```
 
-Then start the arm (or the simulation, `launch/gestures.sh --sim` in another terminal is fine once you quit its menu, or `ros2 launch ... base.launch.py ...`) and run it without `--test`:
+Then start the arm on its own in another terminal: the real arm with `ros2 launch open_manipulator_x_bringup hardware.launch.py port_name:=/dev/ttyACM0`, or the simulation with the `base.launch.py` command from [Simulation](#simulation-no-arm-needed). Then run it without `--test`:
 
 ```bash
 python3 ~/Documents/Open_manipulator_x/voice/chat.py
