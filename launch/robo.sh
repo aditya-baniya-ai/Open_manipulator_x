@@ -9,6 +9,11 @@
 #   ~/Documents/Open_manipulator_x/launch/robo.sh --no-camera    no camera or detection
 #   ~/Documents/Open_manipulator_x/launch/robo.sh --no-video     detection without its video window
 #
+# Detection speed options (see README, "Faster detection"):
+#   --busy-fps 20          keep detecting 20 frames a second while Robo talks (default: pause)
+#   --yolo yolo11n.engine  use the TensorRT model (about 3x faster)
+#   --imgsz 320            smaller picture for YOLO: faster, less accurate (default 640)
+#
 # The arm, camera and detection run in the background (their messages go to log files
 # in /tmp). Closing the control panel (Quit, or Ctrl+C here) stops everything.
 # On the real arm, hold it first: it goes limp.
@@ -23,14 +28,20 @@ SIM=false
 RVIZ=false
 CAMERA=true
 VIDEO=true
-for arg in "$@"; do
-  case "$arg" in
+DETECT_ARGS=()
+while [ $# -gt 0 ]; do
+  case "$1" in
     --sim) SIM=true ;;
     --rviz) RVIZ=true ;;
     --no-camera) CAMERA=false ;;
     --no-video) VIDEO=false ;;
-    *) echo "Unknown option: $arg (use --sim, --rviz, --no-camera, --no-video)"; exit 1 ;;
+    --busy-fps|--imgsz) DETECT_ARGS+=("$1" "$2"); shift ;;
+    --yolo) DETECT_ARGS+=(--model "$2"); shift ;;
+    *) echo "Unknown option: $1"
+       echo "Use: --sim --rviz --no-camera --no-video --busy-fps N --yolo FILE --imgsz N"
+       exit 1 ;;
   esac
+  shift
 done
 
 # Two arm programs at once fight each other and the arm shakes, so refuse to start a second
@@ -86,7 +97,6 @@ if [ "$CAMERA" = true ]; then
   GROUPS_TO_STOP+=($!)
 
   echo "Starting detection (YOLO) ...   log: /tmp/robo_detect.log"
-  DETECT_ARGS=()
   [ "$VIDEO" = false ] && DETECT_ARGS+=(--no-window)
   PYTHONUNBUFFERED=1 python3 "$REPO/perception/detect.py" "${DETECT_ARGS[@]}" \
     > /tmp/robo_detect.log 2>&1 &

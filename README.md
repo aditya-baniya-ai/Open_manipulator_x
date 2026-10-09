@@ -600,6 +600,40 @@ The GPU is shared, so YOLO checking 30 frames a second slowed the LLM (and Whisp
 
 "First words after" is what you notice: Robo speaks while the LLM is still writing, so the full answer time mostly shows how long the answer is. From memory, Robo starts talking as soon as Whisper has understood the question.
 
+### Faster detection (running everything together)
+
+YOLO, Whisper and the LLM all share the Jetson's one GPU, so the way to run everything together *and* fast is to make YOLO cheaper. The video window always shows live video; these options change how often and how heavily YOLO checks frames.
+
+| Option (for `launch/robo.sh`) | What it does |
+|---|---|
+| `--busy-fps 20` | while Robo is talking, check 20 frames a second instead of pausing (default: pause) |
+| `--yolo yolo11n.engine` | use the TensorRT model: the same YOLO, optimised for the Jetson's GPU (about 3x faster) |
+| `--imgsz 320` | YOLO looks at a smaller picture: about 4x less work, but misses small or far-away people more often (default 640) |
+
+`detect.py` logs how long YOLO takes every 5 seconds (in `/tmp/robo_detect.log`, or in the terminal when run on its own), like `YOLO (yolo11n.pt, imgsz 640): 13.9 ms per frame, 30.0 frames checked per second`.
+
+**Make the TensorRT model (once, takes about 5 to 10 minutes).** The export needs `onnx`; installing it with the version limits first keeps NumPy and onnxruntime at the versions ROS 2 and Piper need:
+
+```bash
+python3 -c "import tensorrt; print(tensorrt.__version__)"
+pip3 install "onnx>=1.12,<1.18" onnxslim "numpy<2" "onnxruntime==1.20.1"
+cd ~ && yolo export model=yolo11n.pt format=engine half=True imgsz=640 device=0
+```
+
+The first command just checks TensorRT is there (it comes with JetPack). The export creates `~/yolo11n.engine`. Afterwards, check nothing else changed: `python3 -c "import numpy, onnxruntime; print(numpy.__version__, onnxruntime.__version__)"` should print `1.x` and `1.20.1`.
+
+**Test plan:** start with each setting, ask Robo the same **new** question (one it hasn't answered before), and note YOLO's ms per frame from the log and the "first words after" time:
+
+| Setting | YOLO ms per frame | First words after |
+|---|---|---|
+| `robo.sh --sim` (pause while talking) | to measure | 6.6 s |
+| `robo.sh --sim --busy-fps 20` | to measure | to measure |
+| `robo.sh --sim --busy-fps 25` | to measure | to measure |
+| `robo.sh --sim --busy-fps 25 --yolo yolo11n.engine` | to measure | to measure |
+| `robo.sh --sim --busy-fps 25 --yolo yolo11n.engine --imgsz 320` | to measure | to measure |
+
+(For `--imgsz 320` with the TensorRT model, export it at that size too: add `imgsz=320` to the export command, and rename the result, e.g. `mv ~/yolo11n.engine ~/yolo11n_320.engine`.)
+
 ### Check the joint angles (any terminal)
 
 ```bash

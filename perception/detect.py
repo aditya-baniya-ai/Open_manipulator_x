@@ -8,8 +8,19 @@ Start the camera first (see README.md), then:
 It checks every camera frame. To save power, --fps 5 checks only 5 frames a second
 (still plenty to notice someone walking in).
 
-It pauses while Robo is talking with someone (the control panel publishes /robo_busy),
-so Whisper and the LLM get the whole GPU and answer much faster.
+While Robo is talking with someone (the control panel publishes /robo_busy), detection
+pauses by default, so Whisper and the LLM get the whole GPU and answer much faster.
+--busy-fps 20 keeps checking 20 frames a second during conversations instead.
+The video window keeps showing live video either way; only the boxes update less often.
+
+Faster options (see README, "Faster detection"):
+    --model yolo11n.engine   the TensorRT version of the model (about 3x faster on the
+                             Jetson; make it once with: yolo export model=yolo11n.pt
+                             format=engine half=True)
+    --imgsz 320              look at a smaller picture: faster, but misses small or
+                             far-away people more often (default 640)
+
+Every 5 seconds it logs how long YOLO takes per frame, to compare settings.
 
 It shows a window with boxes around what it finds (press q in the window to quit),
 and publishes:
@@ -69,14 +80,21 @@ def to_bgr(msg):
     raise ValueError(f"Unsupported image encoding: {msg.encoding}")
 
 
-def load_model(find):
+def load_model(find, name):
     # Models are kept in the home folder, so they download only once
     os.chdir(Path.home())
     if find:
         model = YOLO(WORLD_MODEL)
         model.set_classes(find)
         return model
-    return YOLO(YOLO_MODEL)
+    return YOLO(name)
+
+
+def label(image, text, row):
+    """Write a line of text on the video, with a dark outline so it's readable."""
+    position = (10, 25 + 25 * row)
+    cv2.putText(image, text, position, cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 3)
+    cv2.putText(image, text, position, cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
 
 
 def main():
@@ -88,12 +106,19 @@ def main():
     parser.add_argument("--fps", type=float, default=0,
                         help="camera frames to check per second, to save power "
                              "(default 0: every frame)")
+    parser.add_argument("--busy-fps", type=float, default=0,
+                        help="frames to check per second while Robo is talking "
+                             "(default 0: pause)")
+    parser.add_argument("--model", default=YOLO_MODEL,
+                        help="YOLO model file, e.g. yolo11n.engine (default yolo11n.pt)")
+    parser.add_argument("--imgsz", type=int, default=640,
+                        help="picture size YOLO looks at (default 640; 320 is faster)")
     parser.add_argument("--no-window", action="store_true",
                         help="don't open the video window (e.g. over SSH)")
     args, ros_args = parser.parse_known_args()
 
-    print("Loading model ...")
-    model = load_model(args.find)
+    print(f"Loading model {args.model} ...")
+    model = load_model(args.find, args.model)
 
     rclpy.init(args=ros_args)
     node = Detector()
@@ -102,38 +127,63 @@ def main():
 
     last_seen = None
     last_check = 0.0
-    paused = False
+    busy = False
+    last_result = None              # the latest detection, drawn on frames in between
+    times, stats_since = [], time.monotonic()
     try:
         while rclpy.ok():
             rclpy.spin_once(node, timeout_sec=0.01)
-            if node.busy() != paused:
-                paused = node.busy()
-                log.info("Robo is talking: detection paused, so the GPU is free"
-                         if paused else "Detection running again")
-            if paused:
-                node.frame = None
-                if not args.no_window:
-                    cv2.waitKey(1)  # keep the video window responsive
-                continue
             if node.frame is None:
                 continue
-            if args.fps and time.monotonic() - last_check < 1.0 / args.fps:
-                continue  # skip frames between checks, to save power
-            last_check = time.monotonic()
             frame, node.frame = to_bgr(node.frame), None
+            now = time.monotonic()
 
-            result = model(frame, conf=args.conf, verbose=False)[0]
-            names = [result.names[int(c)] for c in result.boxes.cls]
+            if node.busy() != busy:
+                busy = node.busy()
+                if busy:
+                    log.info("Robo is talking: detection " + (
+                        f"slowed to {args.busy_fps:g} checks a second" if args.busy_fps
+                        else "paused") + ", so the LLM gets more of the GPU")
+                else:
+                    log.info("Detection back to normal")
 
-            node.person_pub.publish(Bool(data="person" in names))
-            seen = ", ".join(sorted(set(names)))
-            node.detections_pub.publish(String(data=seen))
-            if seen != last_seen:
-                log.info(f"Seeing: {seen or 'nothing'}")
-                last_seen = seen
+            # Check this frame? (every frame by default; fewer while Robo is talking)
+            rate = args.busy_fps if busy else args.fps
+            check = not (busy and args.busy_fps == 0) and \
+                (rate == 0 or now - last_check >= 1.0 / rate)
+
+            if check:
+                # Keep the average rate (e.g. 20 of the camera's 30 frames a second)
+                last_check = max(last_check + 1.0 / rate, now - 1.0 / rate) if rate else now
+                started = time.perf_counter()
+                result = model(frame, conf=args.conf, imgsz=args.imgsz, half=True,
+                               verbose=False)[0]
+                times.append(time.perf_counter() - started)
+                last_result = result
+                names = [result.names[int(c)] for c in result.boxes.cls]
+
+                node.person_pub.publish(Bool(data="person" in names))
+                seen = ", ".join(sorted(set(names)))
+                node.detections_pub.publish(String(data=seen))
+                if seen != last_seen:
+                    log.info(f"Seeing: {seen or 'nothing'}")
+                    last_seen = seen
+
+            # Every 5 seconds: how long YOLO takes, to compare settings
+            if now - stats_since >= 5.0:
+                if times:
+                    log.info(f"YOLO ({args.model}, imgsz {args.imgsz}): "
+                             f"{1000 * sum(times) / len(times):.1f} ms per frame, "
+                             f"{len(times) / (now - stats_since):.1f} frames checked per second")
+                times, stats_since = [], now
 
             if not args.no_window:
-                cv2.imshow("detections (press q to quit)", result.plot())
+                # Always show the live video; draw the latest boxes on it
+                shown = last_result.plot(img=frame) if last_result is not None else frame
+                if busy:
+                    label(shown, "Robo is talking: detection " + (
+                        f"at {args.busy_fps:g}/s" if args.busy_fps else "paused"), 0)
+                cv2.imshow("detections (press q to quit)", shown)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
     except KeyboardInterrupt:
