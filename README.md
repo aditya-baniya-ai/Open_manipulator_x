@@ -595,8 +595,10 @@ The GPU is shared, so YOLO checking 30 frames a second slowed the LLM (and Whisp
 | | Heard in | First words after | Full answer written after |
 |---|---|---|---|
 | Before pausing YOLO | 3.3 s | 15.8 s | 26 s |
-| After pausing YOLO | to measure | to measure | to measure |
-| Repeated question (from memory) | to measure | to measure | to measure |
+| After pausing YOLO | 1.9 s | 6.6 s | 24.7 s |
+| Repeated question (from memory) | 1.8 s | 1.8 s | 1.8 s |
+
+"First words after" is what you notice: Robo speaks while the LLM is still writing, so the full answer time mostly shows how long the answer is. From memory, Robo starts talking as soon as Whisper has understood the question.
 
 ### Check the joint angles (any terminal)
 
