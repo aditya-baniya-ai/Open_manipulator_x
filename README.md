@@ -28,7 +28,7 @@ A table robot built from a ROBOTIS OpenMANIPULATOR-X arm and an NVIDIA Jetson Or
 | USB speaker | ✅ working |
 | Text to speech (Piper) | ✅ working |
 | Local LLM (Ollama, llama3.2:3b on the GPU) | ✅ working |
-| Talk with the robot (Whisper + LLM + Piper + gestures) | 🚧 written, not tested yet |
+| Talk with the robot (Whisper + LLM + Piper + gestures) | 🚧 talking works (--test); with the arm not tested yet |
 | Robot says hello while it greets, picking | ⏳ planned |
 
 ## What you need

@@ -180,7 +180,7 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
-        proc.terminate()
+        proc.kill()  # stop the mic recorder quietly (terminate makes it print an error)
         if node is not None:
             node.destroy_node()
             rclpy.shutdown()
