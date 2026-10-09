@@ -345,6 +345,8 @@ The control panel has everything in one window:
 | **Gripper** open / close | |
 | **Record your own move** | |
 
+Robo **streams** its answers: it starts speaking as soon as the first sentence is written, while the LLM is still writing the rest, and the gesture starts with the first sentence. Under each answer, a grey line shows how long it took, from when you stopped talking: `(heard in 0.7 s · first words after 1.6 s · full answer written after 6.2 s)`.
+
 Everything gets ready by itself when the panel opens: the speaking voice first (a few seconds, so greetings talk right away), then listening and the LLM, which are also warmed up so the first answer is quick (about 20 to 30 seconds in total; please stay quiet near the end while it measures the room's noise). After that, Talk once and Live start listening immediately. If you click while it's still getting ready, it starts listening as soon as it's ready. The LLM stays loaded on the GPU while the panel is open. The volume buttons change the speaker until the next reboot; to keep a level after rebooting, run `sudo alsactl store`.
 
 **To stop:** hold the real arm, then click **Quit** (or press Ctrl+C in the terminal). Everything stops. If something is left running, run `~/Documents/Open_manipulator_x/launch/stop.sh`.
@@ -563,7 +565,7 @@ Then start the arm on its own in another terminal: the real arm with `ros2 launc
 python3 ~/Documents/Open_manipulator_x/voice/chat.py
 ```
 
-It prints `You: ...` and `Robo: ... [gesture]` for each exchange, and remembers the last few. Pause briefly after each sentence. **Press Enter** to cut Robo off while it's talking (it goes straight back to listening). Say "goodbye" or press Ctrl+C to stop.
+It prints `You: ...` and `Robo: ... [gesture]` for each exchange, with a timing line under each answer, and remembers the last few. Robo starts speaking as soon as the first sentence of its answer is written. Pause briefly after each sentence. **Press Enter** to cut Robo off while it's talking (it goes straight back to listening). Say "goodbye" or press Ctrl+C to stop.
 
 Robo gives short answers to greetings and longer, descriptive ones (3 to 5 sentences) to questions. The gesture is picked by simple rules: a gesture or saved move you name, a wave for hello or goodbye, a bow for thank you, a head shake when it declines an off-topic question, looking around when you talk about the Makerspace, and a nod otherwise. To change how Robo talks, edit `PERSONALITY` at the top of `voice/chat.py`.
 

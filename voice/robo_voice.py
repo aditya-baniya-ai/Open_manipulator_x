@@ -8,11 +8,14 @@ personality is PERSONALITY below; its facts come from robo_knowledge.md.
 
 import io
 import json
+import os
+import queue
 import re
 import subprocess
 import sys
 import tempfile
 import threading
+import time
 import urllib.request
 import wave
 from pathlib import Path
@@ -97,24 +100,55 @@ FACTS
 {knowledge}"""
 
 
-def ask_llm(model, messages, max_words_tokens=250):
-    """Send the conversation to Ollama and return Robo's reply as plain spoken text."""
-    body = json.dumps({"model": model, "messages": messages, "stream": False,
+def llm_request(model, messages, stream, max_tokens=250):
+    body = json.dumps({"model": model, "messages": messages, "stream": stream,
                        # Keep the model loaded on the GPU (Ollama unloads it after 5 idle
                        # minutes otherwise, and reloading makes the next answer slow)
                        "keep_alive": -1,
                        # Less randomness, so it sticks to the facts; room for ~80 words
-                       "options": {"temperature": 0.3,
-                                   "num_predict": max_words_tokens}}).encode()
+                       "options": {"temperature": 0.3, "num_predict": max_tokens}}).encode()
     request = urllib.request.Request(OLLAMA_URL, body, {"Content-Type": "application/json"})
-    with urllib.request.urlopen(request, timeout=60) as response:
+    return urllib.request.urlopen(request, timeout=60)
+
+
+def clean(text):
+    """Remove anything that doesn't make sense spoken: markdown, links, list markers."""
+    text = re.sub(r"https?://\S+", "", text)
+    text = re.sub(r"[*_#`>]|^\s*[-•]\s*", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\s*Robo:\s*", "", text)
+    return " ".join(text.split())
+
+
+def ask_llm(model, messages, max_tokens=250):
+    """Send the conversation to Ollama and return Robo's whole reply as spoken text."""
+    with llm_request(model, messages, stream=False, max_tokens=max_tokens) as response:
         reply = json.loads(response.read())["message"]["content"]
-    # Remove anything that doesn't make sense spoken: markdown, links, list markers
-    reply = re.sub(r"https?://\S+", "", reply)
-    reply = re.sub(r"[*_#`>]|^\s*[-•]\s*", "", reply, flags=re.MULTILINE)
-    reply = re.sub(r"^\s*Robo:\s*", "", reply)
-    reply = " ".join(reply.split())
-    return reply or "Sorry, could you say that again?"
+    return clean(reply) or "Sorry, could you say that again?"
+
+
+# A sentence ends with . ! or ? followed by a space (so "3.5" doesn't split)
+SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
+
+
+def stream_llm(model, messages):
+    """Send the conversation to Ollama and yield Robo's reply one sentence at a time,
+    as soon as each sentence is written."""
+    buffer = ""
+    with llm_request(model, messages, stream=True) as response:
+        for line in response:
+            if not line.strip():
+                continue
+            piece = json.loads(line)
+            buffer += piece.get("message", {}).get("content", "")
+            parts = SENTENCE_END.split(buffer)
+            for sentence in parts[:-1]:
+                if clean(sentence):
+                    yield clean(sentence)
+            buffer = parts[-1]
+            if piece.get("done"):
+                break
+    if clean(buffer):
+        yield clean(buffer)
 
 
 def choose_gesture(heard, reply, gestures):
@@ -152,7 +186,12 @@ class RoboVoice:
                  threshold=None):
         self.model, self.whisper_size, self.voice_path = model, whisper_size, voice
         self.speaker, self.mic, self.threshold = speaker, mic, threshold
-        self.playing = None  # the aplay process while Robo is talking
+        self.playing = None  # the aplay process playing the current sentence
+        self.player = None   # the thread playing queued sentences, one after another
+        self.sentences = None
+        self.cancel = threading.Event()  # set by stop_talking()
+        self.first_sound = None  # when the current answer started playing
+        self.heard_at = self.text_at = None  # when you stopped talking / it was transcribed
         self.piper = None    # the voice, once loaded
         self.loaded = False  # ready to listen and answer
         # The sound card's name, e.g. "Device" from plughw:CARD=Device,DEV=0
@@ -202,7 +241,7 @@ class RoboVoice:
         # Ollama can reuse that work for every question
         try:
             ask_llm(self.model, self.messages + [{"role": "user", "content": "Hello"}],
-                    max_words_tokens=1)
+                    max_tokens=1)
         except Exception:
             pass  # Ollama not running yet; the first question will say so
 
@@ -213,8 +252,10 @@ class RoboVoice:
         audio = listen_for_sentence(self.chunks, self.threshold, timeout, stop)
         if audio is None:
             return None
+        self.heard_at = time.monotonic()
         text = self.ears.transcribe(audio, fp16=True, language="en", initial_prompt=HEARING_HINT,
                                     condition_on_previous_text=False)["text"].strip()
+        self.text_at = time.monotonic()
         return text or None
 
     def answer(self, heard):
@@ -229,26 +270,101 @@ class RoboVoice:
         self.messages[1:] = self.messages[1:][-2 * HISTORY:]
         return reply
 
-    def say(self, text):
-        """Start saying text on the speaker (doesn't wait)."""
+    def answer_stream(self, heard):
+        """Yield Robo's reply sentence by sentence, as the LLM writes it. Remembers the
+        exchange afterwards (even if it was cut off part way, what was said so far)."""
+        self.messages.append({"role": "user", "content": heard})
+        reply = []
+        try:
+            for sentence in stream_llm(self.model, self.messages):
+                reply.append(sentence)
+                yield sentence
+            if not reply:
+                reply.append("Sorry, could you say that again?")
+                yield reply[0]
+        except GeneratorExit:
+            raise
+        except Exception:
+            if not reply:  # nothing was said: forget the question too
+                self.messages.pop()
+            raise
+        finally:
+            if reply:
+                self.messages.append({"role": "assistant", "content": " ".join(reply)})
+                self.messages[1:] = self.messages[1:][-2 * HISTORY:]
+
+    # ---- Talking: sentences are turned into speech and played one after another ----
+
+    def start_talking(self):
+        """Get ready to say a new answer, sentence by sentence (see add_sentence)."""
         self.stop_talking()
         self.load_speech()
-        path = Path(tempfile.gettempdir()) / "robo_says.wav"
-        with wave.open(str(path), "wb") as wav_file:
+        self.cancel.clear()
+        self.first_sound = None
+        self.sentences = queue.Queue()
+        self.player = threading.Thread(target=self._play_all, args=(self.sentences,),
+                                       daemon=True)
+        self.player.start()
+
+    def add_sentence(self, text):
+        """Turn one sentence into speech and queue it (plays right after the one before)."""
+        if self.cancel.is_set() or self.sentences is None:
+            return
+        handle, path = tempfile.mkstemp(prefix="robo_", suffix=".wav")
+        os.close(handle)
+        with wave.open(path, "wb") as wav_file:
             self.piper.synthesize_wav(text, wav_file)
-        self.playing = subprocess.Popen(["aplay", "-q", "-D", self.speaker, str(path)])
+        self.sentences.put(path)
+
+    def done_talking(self):
+        """No more sentences in this answer."""
+        if self.sentences is not None:
+            self.sentences.put(None)
+
+    def _play_all(self, sentences):
+        while True:
+            path = sentences.get()
+            if path is None:
+                return
+            if not self.cancel.is_set():
+                if self.first_sound is None:
+                    self.first_sound = time.monotonic()
+                self.playing = subprocess.Popen(["aplay", "-q", "-D", self.speaker, path])
+                self.playing.wait()
+            os.remove(path)
+
+    def say(self, text):
+        """Start saying text on the speaker (doesn't wait)."""
+        self.start_talking()
+        self.add_sentence(text)
+        self.done_talking()
 
     def talking(self):
-        return self.playing is not None and self.playing.poll() is None
+        return self.player is not None and self.player.is_alive()
 
     def wait_until_quiet(self):
-        if self.playing is not None:
-            self.playing.wait()
+        if self.player is not None:
+            self.player.join()
 
     def stop_talking(self):
-        if self.talking():
+        """Stop right away, including sentences still waiting to be said."""
+        self.cancel.set()
+        if self.playing is not None and self.playing.poll() is None:
             self.playing.kill()
-            self.playing.wait()
+        if self.talking():
+            self.sentences.put(None)
+            self.player.join(timeout=3)
+
+    def timing(self, answer_done):
+        """A short summary of how long this exchange took, from when you stopped talking."""
+        parts = []
+        if self.heard_at and self.text_at:
+            parts.append(f"heard in {self.text_at - self.heard_at:.1f} s")
+        if self.heard_at and self.first_sound:
+            parts.append(f"first words after {self.first_sound - self.heard_at:.1f} s")
+        if self.heard_at and answer_done:
+            parts.append(f"full answer written after {answer_done - self.heard_at:.1f} s")
+        return " · ".join(parts)
 
     def volume(self, change=None):
         """The speaker volume in percent (or None if unknown). change=+5 or -5 adjusts it."""

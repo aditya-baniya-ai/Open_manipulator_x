@@ -28,6 +28,7 @@ Say "goodbye" to stop, or press Ctrl+C.
 import argparse
 import sys
 import threading
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -90,19 +91,31 @@ def main():
             print(f"You:   {heard}")
             if args.wake and args.wake.lower() not in heard.lower():
                 continue
+            # Speak each sentence as soon as the LLM writes it
+            robo.start_talking()
+            said = []
             try:
-                reply = robo.answer(heard)
+                for sentence in robo.answer_stream(heard):
+                    if robo.cancel.is_set():
+                        break  # cut off with Enter
+                    said.append(sentence)
+                    robo.add_sentence(sentence)
             except Exception as error:  # Ollama not running, timeout, ...
                 print(f"  (couldn't get an answer from the LLM: {error})")
+            finally:
+                robo.done_talking()
+            written = time.monotonic()
+            if not said:
                 continue
+            reply = " ".join(said)
             gesture = choose_gesture(heard, reply, GESTURES)
             print(f"Robo:  {reply}" + (f"  [{GESTURES[gesture][0]}]" if gesture else ""))
 
-            # Talk and move at the same time, then wait for both
-            robo.say(reply)
+            # Move while it's still talking, then wait for it to finish
             if node is not None and gesture:
                 run_gesture(node, GESTURES[gesture][1])
             robo.wait_until_quiet()
+            print(f"       ({robo.timing(written)})")
             if is_goodbye(heard):
                 break
     except KeyboardInterrupt:

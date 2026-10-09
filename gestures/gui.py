@@ -244,6 +244,7 @@ class App:
         scroll.pack(side="right", fill="y")
         self.transcript.tag_config("you", foreground="#0969da")
         self.transcript.tag_config("robo", foreground=GREEN)
+        self.transcript.tag_config("note", foreground=GREY)
 
     def show_volume(self, percent):
         self.volume_label.config(text="?" if percent is None else f"{percent}%")
@@ -265,7 +266,7 @@ class App:
     def add_line(self, who, text):
         self.transcript.config(state="normal")
         self.transcript.insert("end", f"{who}: ", "you" if who == "You" else "robo")
-        self.transcript.insert("end", text + "\n\n")
+        self.transcript.insert("end", text + ("\n" if who == "Robo" else "\n\n"))
         self.transcript.see("end")
         self.transcript.config(state="disabled")
 
@@ -340,39 +341,64 @@ class App:
                     return
                 self.post(lambda h=heard: self.add_line("You", h))
                 self.post(lambda: self.voice_says("Thinking ..."))
+
+                # Speak each sentence as soon as the LLM writes it; start the gesture
+                # with the first sentence (the arm only moves on the window's thread)
+                self.robo.start_talking()
+                said, key, moved = [], None, None
                 try:
-                    reply = self.robo.answer(heard)
+                    for sentence in self.robo.answer_stream(heard):
+                        if self.stop_voice.is_set() or self.robo.cancel.is_set():
+                            break  # Live turned off, or Stop talking
+                        said.append(sentence)
+                        if len(said) == 1:
+                            self.post(lambda: self.voice_says("Talking ..."))
+                            key = choose_gesture(heard, sentence, GESTURES)
+                            if key:
+                                moved = self.move_in_window(*GESTURES[key])
+                        self.robo.add_sentence(sentence)
                 except Exception as error:  # Ollama not running, timeout, ...
                     self.post(lambda e=error: self.voice_says(
                         f"Couldn't get an answer from the LLM: {e}", True))
-                    if not live:
-                        return
-                    continue
-                if self.stop_voice.is_set():  # Live was turned off while thinking
-                    break
-                key = choose_gesture(heard, reply, GESTURES)
-                self.post(lambda r=reply: self.add_line("Robo", r))
-                self.post(lambda: self.voice_says("Talking ..."))
-
-                # Talk and move at the same time (the arm only moves on the window's thread)
-                self.robo.say(reply)
-                if key:
-                    done = threading.Event()
-                    name, moves = GESTURES[key]
-
-                    def move(name=name, moves=moves, done=done):
-                        try:
-                            self.play(name, moves)
-                        finally:
-                            done.set()  # never leave the voice thread waiting
-
-                    self.post(move)
-                    done.wait()
+                    if not said:
+                        self.robo.done_talking()
+                        if not live:
+                            return
+                        continue
+                finally:
+                    self.robo.done_talking()
+                written = time.monotonic()
+                self.post(lambda r=" ".join(said): self.add_line("Robo", r))
                 self.robo.wait_until_quiet()
+                if moved:
+                    moved.wait()
+                self.post(lambda t=self.robo.timing(written): self.add_note(t))
                 if not live or is_goodbye(heard):
                     break
         finally:
             self.post(self.voice_finished)
+
+    def move_in_window(self, name, moves):
+        """Ask the window's thread to play a gesture; returns an Event set when it's done."""
+        done = threading.Event()
+
+        def move():
+            try:
+                self.play(name, moves)
+            finally:
+                done.set()  # never leave the voice thread waiting
+
+        self.post(move)
+        return done
+
+    def add_note(self, text):
+        """A small grey line in the transcript, like the timing of the last answer."""
+        if not text:
+            return
+        self.transcript.config(state="normal")
+        self.transcript.insert("end", f"({text})\n\n", "note")
+        self.transcript.see("end")
+        self.transcript.config(state="disabled")
 
     def voice_finished(self):
         self.voice_busy = self.live = False
