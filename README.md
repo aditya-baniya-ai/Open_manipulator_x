@@ -341,7 +341,7 @@ The control panel has everything in one window:
 | Left side | Right side |
 |---|---|
 | **Gestures** (including your saved moves) | **Talk with Robo**: **Talk once** listens for one question and answers it, then stops. **Live** keeps listening and answering until you turn it off (or say "goodbye"). **Stop talking** cuts Robo off. **Speaker volume** `-` / `+` in 5% steps. A transcript shows the conversation. |
-| **Move joints** (hold `-` / `+`) with live angles | **Camera greeting**: when someone new appears, Robo waves and says hello, on its own, without clicking anything (untick to turn it off). It's paused during Talk once and Live, so it doesn't greet everyone walking past while you're talking. |
+| **Move joints** (hold `-` / `+`) with live angles | **Camera greeting**: when someone new appears, Robo waves and says hello, on its own, without clicking anything (untick to turn it off). It's paused during Talk once and Live (detection pauses too, so the LLM gets the whole GPU and answers faster), so it doesn't greet everyone walking past while you're talking. |
 | **Gripper** open / close | |
 | **Record your own move** | |
 
@@ -576,6 +576,27 @@ Robo gives short answers to greetings and longer, descriptive ones (3 to 5 sente
 | `--wake robo` | only answer sentences that contain "Robo" (so it doesn't reply to everyone talking nearby) |
 | `--whisper base` | faster but less accurate hearing (default `small`) |
 | `--model llama3.1:8b` | a bigger, smarter LLM (download it first with `ollama pull llama3.1:8b`); slower answers |
+
+### How fast is Robo?
+
+Measured on the Jetson Orin NX 16GB in 25W mode, with `llama3.2:3b` and Whisper `small`. Times are from when Robo notices you've stopped talking (after a 1.2 s pause).
+
+**LLM writing speed** (`ollama run llama3.2:3b --verbose "What is a robot arm? Answer in 3 sentences."`, the `eval rate` line):
+
+| | Tokens per second |
+|---|---|
+| Nothing else running | 11.5 |
+| With `robo.sh` running (YOLO on every camera frame, Whisper, RViz) | 3.3 |
+
+The GPU is shared, so YOLO checking 30 frames a second slowed the LLM (and Whisper) down about 3.5 times. That's why detection now **pauses while Robo is talking** with someone.
+
+**A full conversation turn** (the timing line under each answer):
+
+| | Heard in | First words after | Full answer written after |
+|---|---|---|---|
+| Before pausing YOLO | 3.3 s | 15.8 s | 26 s |
+| After pausing YOLO | to measure | to measure | to measure |
+| Repeated question (from memory) | to measure | to measure | to measure |
 
 ### Check the joint angles (any terminal)
 

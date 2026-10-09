@@ -65,6 +65,9 @@ class App:
         self.decider = GreetDecider()
         self.greet_on = tk.BooleanVar(value=True)
         node.create_subscription(Bool, "/person_detected", self.on_person, 10)
+        # Tell detect.py when Robo is busy talking, so it pauses and frees the GPU
+        self.busy_pub = node.create_publisher(Bool, "/robo_busy", 10)
+        self.busy_sent = (None, 0.0)  # what we last published, and when
 
         self.status = tk.Label(root, text="Ready", font=BIG, fg=GREEN)
         self.status.pack(pady=(10, 4))
@@ -148,7 +151,18 @@ class App:
             if joint in self.node.joints:
                 label.config(text=f"{math.degrees(self.node.joints[joint]):+.0f}°")
         self.check_greeting()
+        self.publish_busy()
         self.next_spin = self.root.after(50, self.spin)
+
+    def publish_busy(self):
+        """Busy = a conversation is running or Robo is talking. Sent when it changes, and
+        repeated every second while busy (detect.py resumes if the repeats stop)."""
+        busy = self.voice_busy or self.robo.talking()
+        now = time.monotonic()
+        last, sent_at = self.busy_sent
+        if busy != last or (busy and now - sent_at >= 1.0):
+            self.busy_pub.publish(Bool(data=busy))
+            self.busy_sent = (busy, now)
 
     def say(self, text, error=False):
         self.status.config(text=text, fg=RED if error else GREEN)
@@ -423,6 +437,13 @@ class App:
 
     def check_greeting(self):
         now = time.monotonic()
+        if self.voice_busy:
+            # Talking with someone: detection is paused and greetings are off. Count it as
+            # a greeting, so the person you were talking to isn't greeted when it ends.
+            self.decider.greeted(now)
+            if self.camera_seen:
+                self.camera_status.config(text="Camera: paused while talking with Robo")
+            return
         if self.camera_seen:
             in_view = self.last_person is not None and now - self.last_person < 1.0
             self.camera_status.config(text="Camera: person in view" if in_view
@@ -430,8 +451,8 @@ class App:
         if not self.decider.should_greet(self.last_person, now):
             return
         self.decider.greeted(now)
-        # Don't interrupt: skip the greeting while busy (they're probably talking to Robo)
-        if not self.greet_on.get() or self.voice_busy or self.moving or self.robo.talking():
+        # Don't interrupt: skip the greeting while busy
+        if not self.greet_on.get() or self.moving or self.robo.talking():
             return
         if self.robo.piper is not None:  # the speaking voice is ready
             self.robo.say(GREETING)

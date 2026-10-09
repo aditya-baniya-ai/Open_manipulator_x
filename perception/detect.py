@@ -8,6 +8,9 @@ Start the camera first (see README.md), then:
 It checks every camera frame. To save power, --fps 5 checks only 5 frames a second
 (still plenty to notice someone walking in).
 
+It pauses while Robo is talking with someone (the control panel publishes /robo_busy),
+so Whisper and the LLM get the whole GPU and answer much faster.
+
 It shows a window with boxes around what it finds (press q in the window to quit),
 and publishes:
     /person_detected   std_msgs/Bool     true while a person is in view
@@ -39,6 +42,17 @@ class Detector(Node):
         self.create_subscription(Image, "/image_raw", self.on_image, qos_profile_sensor_data)
         self.person_pub = self.create_publisher(Bool, "/person_detected", 10)
         self.detections_pub = self.create_publisher(String, "/detections", 10)
+        # The control panel says when Robo is busy talking; then we pause to free the GPU
+        self.busy_until = 0.0
+        self.create_subscription(Bool, "/robo_busy", self.on_busy, 10)
+
+    def on_busy(self, msg):
+        # The panel repeats this every second while busy; if it stops (e.g. it closed),
+        # detection resumes on its own after a few seconds
+        self.busy_until = time.monotonic() + 3.0 if msg.data else 0.0
+
+    def busy(self):
+        return time.monotonic() < self.busy_until
 
     def on_image(self, msg):
         # Keep only the newest frame, so detection never falls behind the camera
@@ -88,9 +102,19 @@ def main():
 
     last_seen = None
     last_check = 0.0
+    paused = False
     try:
         while rclpy.ok():
             rclpy.spin_once(node, timeout_sec=0.01)
+            if node.busy() != paused:
+                paused = node.busy()
+                log.info("Robo is talking: detection paused, so the GPU is free"
+                         if paused else "Detection running again")
+            if paused:
+                node.frame = None
+                if not args.no_window:
+                    cv2.waitKey(1)  # keep the video window responsive
+                continue
             if node.frame is None:
                 continue
             if args.fps and time.monotonic() - last_check < 1.0 / args.fps:
