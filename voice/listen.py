@@ -74,11 +74,20 @@ def loudness(chunk):
     return float(np.sqrt(np.mean(chunk.astype(np.float32) ** 2)))
 
 
-def listen_for_sentence(chunks, threshold):
-    """Wait for speech, and return it once there's a pause (or None if too short)."""
-    before = []
+def listen_for_sentence(chunks, threshold, timeout=None, stop=None):
+    """Wait for speech, and return it once there's a pause.
+
+    Returns None if it was too short, if nobody spoke within timeout seconds, or if
+    stop (a threading.Event) gets set while waiting.
+    """
+    before, waited = [], 0.0
     while True:
+        if stop is not None and stop.is_set():
+            return None
+        if timeout is not None and waited >= timeout:
+            return None
         chunk = chunks.get()
+        waited += 0.1
         if loudness(chunk) > threshold:
             break
         before = (before + [chunk])[-PRE_ROLL:]

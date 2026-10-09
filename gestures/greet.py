@@ -26,6 +26,32 @@ GONE_TIME = 3.0     # seconds with nobody in view before the next person counts 
 FLICKER_TIME = 0.5  # a person missed for less than this still counts as in view
 
 
+class GreetDecider:
+    """Decides when to greet: a new person, in view long enough, after the cooldown."""
+
+    def __init__(self, cooldown=30.0, see_time=1.0):
+        self.cooldown, self.see_time = cooldown, see_time
+        self.in_view_since = None  # when the current person came into view
+        self.last_greet = None     # when we last greeted
+        self.ready = True          # False after a greeting, until nobody is in view a while
+
+    def should_greet(self, last_person, now):
+        """last_person: when a person was last detected (or None). Returns True to greet."""
+        seen = last_person is not None and now - last_person < FLICKER_TIME
+        if not seen:
+            self.in_view_since = None
+            if last_person is None or now - last_person >= GONE_TIME:
+                self.ready = True
+            return False
+        if self.in_view_since is None:
+            self.in_view_since = now
+        cooled_down = self.last_greet is None or now - self.last_greet >= self.cooldown
+        return self.ready and cooled_down and now - self.in_view_since >= self.see_time
+
+    def greeted(self, now):
+        self.last_greet, self.ready = now, False
+
+
 class Greeter(Gesturer):
     def __init__(self):
         super().__init__()
@@ -62,30 +88,14 @@ def main():
         return
     log.info(f"Ready. Will greet with '{name}'. Press Ctrl+C to stop.")
 
-    in_view_since = None  # when the current person came into view
-    last_greet = None     # when we last greeted
-    ready = True          # False after a greeting, until nobody is in view for a while
-
+    decider = GreetDecider(args.cooldown, args.see_time)
     try:
         while rclpy.ok():
             rclpy.spin_once(node, timeout_sec=0.05)
-            now = time.monotonic()
-            seen = node.last_person is not None and now - node.last_person < FLICKER_TIME
-
-            if not seen:
-                in_view_since = None
-                if node.last_person is None or now - node.last_person >= GONE_TIME:
-                    ready = True
-                continue
-
-            if in_view_since is None:
-                in_view_since = now
-            cooled_down = last_greet is None or now - last_greet >= args.cooldown
-            if ready and cooled_down and now - in_view_since >= args.see_time:
+            if decider.should_greet(node.last_person, time.monotonic()):
                 log.info(f"Person in view: {name}!")
                 run_gesture(node, moves)
-                last_greet = time.monotonic()
-                ready = False
+                decider.greeted(time.monotonic())
     except KeyboardInterrupt:
         pass
 

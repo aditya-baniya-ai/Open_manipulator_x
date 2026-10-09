@@ -29,6 +29,7 @@ A table robot built from a ROBOTIS OpenMANIPULATOR-X arm and an NVIDIA Jetson Or
 | Text to speech (Piper) | ✅ working |
 | Local LLM (Ollama, llama3.2:3b on the GPU) | ✅ working |
 | Talk with Robo (Whisper + LLM + Piper + gestures) | 🚧 talking works (--test); with the arm not tested yet |
+| Everything in one command + control panel with voice (`launch/robo.sh`) | 🚧 written, not tested yet |
 | Robot says hello while it greets, picking | ⏳ planned |
 
 ## What you need
@@ -319,7 +320,40 @@ Setup is done.
 
 ## Part 2: Running the robot
 
-Do this every time you want to use the robot. You'll use 2 or 3 terminal windows. Open a new one with **Ctrl+Shift+T**.
+### Everything at once (recommended)
+
+One command starts the whole robot: the arm, the camera, person/object detection, and **Robo's control panel**. Turn on the arm's 12 V power, make sure it stands upright, clear the space around it, then:
+
+```bash
+~/Documents/Open_manipulator_x/launch/robo.sh
+```
+
+To use the simulated arm instead (RViz opens):
+
+```bash
+~/Documents/Open_manipulator_x/launch/robo.sh --sim
+```
+
+Other options: `--rviz` (real arm, also shown in RViz), `--no-camera` (no camera or detection), `--no-video` (detection without its video window).
+
+The control panel has everything in one window:
+
+| Left side | Right side |
+|---|---|
+| **Gestures** (including your saved moves) | **Talk with Robo**: **Talk once** listens for one question and answers it, then stops. **Live** keeps listening and answering until you turn it off (or say "goodbye"). **Stop talking** cuts Robo off. A transcript shows the conversation. |
+| **Move joints** (hold `-` / `+`) with live angles | **Camera greeting**: when someone new appears, Robo waves and says hello (untick to turn it off). |
+| **Gripper** open / close | |
+| **Record your own move** | |
+
+The first click on Talk once or Live loads the voice (about 20 seconds; stay quiet at the end while it measures the room's noise). Robo skips greeting people while you're talking to it.
+
+**To stop:** hold the real arm, then click **Quit** (or press Ctrl+C in the terminal). Everything stops. If something is left running, run `~/Documents/Open_manipulator_x/launch/stop.sh`.
+
+The sections below start each part on its own, which is useful for testing one thing at a time.
+
+### Running parts separately
+
+You'll use 2 or 3 terminal windows. Open a new one with **Ctrl+Shift+T**.
 
 ### Start the arm (Terminal 1)
 
@@ -669,16 +703,19 @@ gestures/
   gestures.py          press a key to wave, nod, shake, bow or look around,
                        or record and save your own moves (my_gestures.json)
   greet.py             waves automatically when the camera sees a person
-  gui.py               the same controls as gestures.py, as buttons in a window
+  gui.py               Robo's control panel: gestures, joints, gripper, recording,
+                       talking with Robo (once or live) and the camera greeting
 perception/
   detect.py            live object detection from the camera (YOLO / YOLO-World)
 voice/
   listen.py            voice commands: say "wave", "bow", ... and the arm does it
-  chat.py              talk with Robo: it answers out loud (local LLM + Piper) and gestures
+  robo_voice.py        Robo's voice: listening, personality, LLM, speaking, gesture rules
+  chat.py              talk with Robo in the terminal (the control panel has it as buttons)
   robo_knowledge.md    Robo's facts about itself, Texas State and the Ingram Hall Makerspace
 launch/
   greeter.launch.py    starts the whole greeter robot with one command
   gestures.sh          starts the arm (real or --sim) and the controls (keys, or --gui) together
+  robo.sh              starts EVERYTHING: arm, camera, detection and the control panel
   stop.sh              stops every robot program (use when something is left running)
 dependencies.repos     list of ROBOTIS code to download (used in Step 5)
 ```
