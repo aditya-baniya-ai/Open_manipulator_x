@@ -170,7 +170,7 @@ So nothing in the software moves it: the base servo itself overshoots. ROBOTIS g
 1. onnxruntime 1.21 and newer have a bug on the Orin where the CPU maker isn't recognised ("Unknown CPU vendor").
 2. In the Jetson's lower power modes, CPU cores 4–7 are switched off. onnxruntime still tries to use them (`pthread_setaffinity_np failed ... mask: {5, }`) and crashes.
 
-**Fix:** use onnxruntime 1.20.1 (`pip3 install "onnxruntime==1.20.1" "numpy<2"`), and switch the Jetson to full power so all 8 cores are on: `cat /sys/devices/system/cpu/online` should show `0-7`; if not, run `sudo nvpmodel -m 0` and reboot. Our Jetson was in 15W mode (mode 2); switch back with `sudo nvpmodel -m 2` if needed.
+**Fix:** use onnxruntime 1.20.1 (`pip3 install "onnxruntime==1.20.1" "numpy<2"`), and switch the Jetson to a power mode with all 8 cores on: `cat /sys/devices/system/cpu/online` should show `0-7`; if not, run `sudo nvpmodel -m 3` (25W on the Orin NX 16GB) and reboot. Our Jetson was in 15W mode (mode 2); switch back with `sudo nvpmodel -m 2` if needed.
 
 ## Piper: "Unable to find voice"
 
@@ -184,7 +184,7 @@ The voice file isn't there (for example the download failed). Check `ls -la ~/pi
 
 **Fixes:**
 - `perception/detect.py` now checks 5 camera frames a second instead of every frame (`--fps 10` for more), and `launch/robo.sh` runs the camera at 15 fps. Run `git pull` to get this.
-- Use a power mode that keeps all 8 CPU cores on but has a power budget (for example 25W). List the modes with `grep -E "POWER_MODEL|CORE_4|CORE_7" /etc/nvpmodel.conf`; a mode where `CORE_4` to `CORE_7` are `1` keeps all cores on. Switch with `sudo nvpmodel -m <number>` (it may ask to reboot).
+- Use the 25W mode instead of MAXN: it keeps all 8 CPU cores on (which Piper needs) but has a power budget. On the Orin NX 16GB it's mode 3: `sudo nvpmodel -m 3` (it asks to reboot). To list the modes: `grep -E "POWER_MODEL|CORE_4|CORE_7" /etc/nvpmodel.conf`; a mode where `CORE_4` and `CORE_7` are `1` keeps all cores on.
 - Use the power adapter that came with the Jetson kit; a weaker one makes this much more likely.
 
 ## A servo ignores a target near 0° or 360°

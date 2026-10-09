@@ -283,16 +283,16 @@ speaker-test -D plughw:CARD=Device,DEV=0 -c 2 -t wav -l 1
 
 ### Step 12. Install Piper (text to speech)
 
-Piper turns text into a spoken voice, running entirely on the Jetson. First, put the Jetson in its full-power mode (MAXN): in the lower modes some CPU cores are switched off, and Piper's voice engine (onnxruntime) crashes trying to use them. Check which cores are on:
+Piper turns text into a spoken voice, running entirely on the Jetson. First, put the Jetson in its **25W** power mode: in the lower modes (10W, 15W) some CPU cores are switched off, and Piper's voice engine (onnxruntime) crashes trying to use them. 25W keeps all 8 cores on with a power budget (MAXN has no budget, so running everything at once triggers "System throttled due to over-current"). Check which cores are on:
 
 ```bash
 cat /sys/devices/system/cpu/online
 ```
 
-If it shows `0-3` instead of `0-7`, switch to mode 0 and say `yes` to the reboot (note the old mode from `sudo nvpmodel -q` if you want to switch back later):
+If it shows `0-3` instead of `0-7`, switch to mode 3 (25W) and say `yes` to the reboot (note the old mode from `sudo nvpmodel -q` if you want to switch back later). On other Jetsons the 25W mode may have a different number: `grep POWER_MODEL /etc/nvpmodel.conf` lists them.
 
 ```bash
-sudo nvpmodel -m 0
+sudo nvpmodel -m 3
 ```
 
 Install Piper, with an onnxruntime version that doesn't have the Jetson Orin "Unknown CPU vendor" bug:
