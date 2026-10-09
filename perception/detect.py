@@ -8,17 +8,20 @@ Start the camera first (see README.md), then:
 It checks every camera frame. To save power, --fps 5 checks only 5 frames a second
 (still plenty to notice someone walking in).
 
-While Robo is talking with someone (the control panel publishes /robo_busy), detection
-pauses by default, so Whisper and the LLM get the whole GPU and answer much faster.
---busy-fps 20 keeps checking 20 frames a second during conversations instead.
-The video window keeps showing live video either way; only the boxes update less often.
+It uses the TensorRT model (~/yolo11n.engine, half the GPU work of yolo11n.pt) when
+it's there, and yolo11n.pt otherwise. Make the TensorRT model once with:
+    cd ~ && yolo export model=yolo11n.pt format=engine half=True imgsz=640 device=0
 
-Faster options (see README, "Faster detection"):
-    --model yolo11n.engine   the TensorRT version of the model (about 3x faster on the
-                             Jetson; make it once with: yolo export model=yolo11n.pt
-                             format=engine half=True)
+While Robo is talking with someone (the control panel publishes /robo_busy), detection
+checks 25 frames a second instead of every frame, leaving more of the GPU for Whisper
+and the LLM. --busy-fps 0 pauses detection completely during conversations.
+The video keeps showing live either way; only the boxes update less often.
+
+Other options (see README, "Faster detection"):
+    --model yolo11n.pt       use a different YOLO model file
     --imgsz 320              look at a smaller picture: faster, but misses small or
-                             far-away people more often (default 640)
+                             far-away people more often (default 640; a TensorRT model
+                             must be exported at the same size)
 
 Every 5 seconds it logs how long YOLO takes per frame, to compare settings.
 
@@ -46,6 +49,8 @@ from std_msgs.msg import Bool, String
 from ultralytics import YOLO
 
 YOLO_MODEL = "yolo11n.pt"            # small and fast, knows 80 objects
+TENSORRT_MODEL = "yolo11n.engine"    # the same model, built for the Jetson's GPU (faster)
+BUSY_FPS = 25                        # frames checked per second while Robo is talking
 PREVIEW_WIDTH = 480                  # size of the video sent to the control panel
 PREVIEW_FPS = 15                     # how often it's sent
 WORLD_MODEL = "yolov8s-worldv2.pt"   # finds any object you name
@@ -113,17 +118,26 @@ def main():
     parser.add_argument("--fps", type=float, default=0,
                         help="camera frames to check per second, to save power "
                              "(default 0: every frame)")
-    parser.add_argument("--busy-fps", type=float, default=0,
-                        help="frames to check per second while Robo is talking "
-                             "(default 0: pause)")
-    parser.add_argument("--model", default=YOLO_MODEL,
-                        help="YOLO model file, e.g. yolo11n.engine (default yolo11n.pt)")
+    parser.add_argument("--busy-fps", type=float, default=BUSY_FPS,
+                        help=f"frames to check per second while Robo is talking "
+                             f"(default {BUSY_FPS}; 0 pauses)")
+    parser.add_argument("--model",
+                        help=f"YOLO model file (default {TENSORRT_MODEL} if it exists, "
+                             f"otherwise {YOLO_MODEL})")
     parser.add_argument("--imgsz", type=int, default=640,
                         help="picture size YOLO looks at (default 640; 320 is faster)")
     parser.add_argument("--no-window", action="store_true",
                         help="don't open the video window (e.g. over SSH)")
     args, ros_args = parser.parse_known_args()
 
+    if args.model is None:
+        # The TensorRT model if it's been made (see the top of this file), else the normal one
+        if (Path.home() / TENSORRT_MODEL).exists():
+            args.model = TENSORRT_MODEL
+        else:
+            args.model = YOLO_MODEL
+            print(f"Using {YOLO_MODEL}. For faster detection, make the TensorRT model once: "
+                  "cd ~ && yolo export model=yolo11n.pt format=engine half=True imgsz=640 device=0")
     print(f"Loading model {args.model} ...")
     model = load_model(args.find, args.model)
 

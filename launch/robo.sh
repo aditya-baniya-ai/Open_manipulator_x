@@ -8,9 +8,10 @@
 #   ~/Documents/Open_manipulator_x/launch/robo.sh --rviz         real arm, also shown in RViz
 #   ~/Documents/Open_manipulator_x/launch/robo.sh --no-camera    no camera or detection
 #
-# Detection speed options (see README, "Faster detection"):
-#   --busy-fps 20          keep detecting 20 frames a second while Robo talks (default: pause)
-#   --yolo yolo11n.engine  use the TensorRT model (about 3x faster)
+# Detection uses the TensorRT model (~/yolo11n.engine) when it exists, and checks 25
+# frames a second while Robo talks. Options to change that (see README, "Faster detection"):
+#   --busy-fps 0           pause detection completely while Robo talks (default 25)
+#   --yolo yolo11n.pt      use a different YOLO model file
 #   --imgsz 320            smaller picture for YOLO: faster, less accurate (default 640)
 #
 # The arm, camera and detection run in the background (their messages go to log files

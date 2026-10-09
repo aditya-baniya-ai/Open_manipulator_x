@@ -602,13 +602,13 @@ The GPU is shared, so YOLO checking 30 frames a second slowed the LLM (and Whisp
 
 ### Faster detection (running everything together)
 
-YOLO, Whisper and the LLM all share the Jetson's one GPU, so the way to run everything together *and* fast is to make YOLO cheaper. The video window always shows live video; these options change how often and how heavily YOLO checks frames.
+YOLO, Whisper and the LLM all share the Jetson's one GPU, so the way to run everything together *and* fast is to make YOLO cheaper. The camera view always shows live video. **By default**, detection uses the **TensorRT model** (`~/yolo11n.engine`, made once with the steps below; without it, the normal `yolo11n.pt`), checks **every frame** while Robo is idle, and **25 frames a second** while Robo is talking. No options are needed for this.
 
 | Option (for `launch/robo.sh`) | What it does |
 |---|---|
-| `--busy-fps 20` | while Robo is talking, check 20 frames a second instead of pausing (default: pause) |
-| `--yolo yolo11n.engine` | use the TensorRT model: the same YOLO, optimised for the Jetson's GPU (about 3x faster) |
-| `--imgsz 320` | YOLO looks at a smaller picture: about 4x less work, but misses small or far-away people more often (default 640) |
+| `--busy-fps 0` | pause detection completely while Robo is talking (default 25) |
+| `--yolo yolo11n.pt` | use a different YOLO model file (default: the TensorRT model if it exists) |
+| `--imgsz 320` | YOLO looks at a smaller picture: about 4x less work, but misses small or far-away people more often (default 640; a TensorRT model must be exported at the same size) |
 
 `detect.py` logs how long YOLO takes every 5 seconds (in `/tmp/robo_detect.log`, or in the terminal when run on its own), like `YOLO (yolo11n.pt, imgsz 640): 13.9 ms per frame, 30.0 frames checked per second`.
 
@@ -631,15 +631,13 @@ The first command just checks TensorRT is there (it comes with JetPack). The exp
 
 The GPU part is what slows the LLM down. At 30 frames a second, the normal model keeps the GPU busy about 81% of the time; TensorRT about 38%, leaving more than twice as much for the LLM and Whisper. Building the engine took about 8 minutes, and it didn't change any other package versions.
 
-**Test plan:** start with each setting, ask Robo the same **new** question (one it hasn't answered before), and note YOLO's ms per frame from the log and the "first words after" time:
+**Conversation speed with each setting** (ask Robo a **new** question, one it hasn't answered before; YOLO's ms per frame is in `/tmp/robo_detect.log`):
 
 | Setting | YOLO ms per frame | First words after |
 |---|---|---|
-| `robo.sh --sim` (pause while talking) | to measure | 6.6 s |
-| `robo.sh --sim --busy-fps 20` | to measure | to measure |
-| `robo.sh --sim --busy-fps 25` | to measure | to measure |
-| `robo.sh --sim --busy-fps 25 --yolo yolo11n.engine` | to measure | to measure |
-| `robo.sh --sim --busy-fps 25 --yolo yolo11n_320.engine --imgsz 320` | to measure | to measure |
+| `yolo11n.pt`, paused while talking (`--yolo yolo11n.pt --busy-fps 0`) | n/a (paused) | 6.6 s |
+| **Default:** TensorRT, 25 frames a second while talking | to measure | to measure |
+| TensorRT at 320 (`--yolo yolo11n_320.engine --imgsz 320`) | to measure | to measure |
 
 (For `--imgsz 320` with the TensorRT model, export it at that size too: add `imgsz=320` to the export command, and rename the result, e.g. `mv ~/yolo11n.engine ~/yolo11n_320.engine`.)
 
