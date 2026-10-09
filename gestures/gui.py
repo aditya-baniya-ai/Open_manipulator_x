@@ -81,6 +81,9 @@ class App:
         tk.Button(root, text="Quit", font=FONT, width=10, command=self.quit).pack(pady=(4, 10))
         root.protocol("WM_DELETE_WINDOW", self.quit)
 
+        # Load the speaking voice right away, so greetings can talk without clicking anything
+        threading.Thread(target=self.load_speech, daemon=True).start()
+
         # Keep ROS messages (joint angles) coming in while the window is open
         self.spin()
 
@@ -214,6 +217,17 @@ class App:
         tk.Label(box, text="Talk once: one question and answer.   "
                            "Live: keeps listening until you turn it off.",
                  font=SMALL, fg=GREY).pack(anchor="w", pady=(2, 0))
+
+        volume = tk.Frame(box)
+        volume.pack(anchor="w", pady=(6, 0))
+        tk.Label(volume, text="Speaker volume", font=FONT).grid(row=0, column=0, padx=(0, 8))
+        tk.Button(volume, text="-", font=BIG, width=3,
+                  command=lambda: self.change_volume(-5)).grid(row=0, column=1, padx=2)
+        self.volume_label = tk.Label(volume, text="?", font=FONT, width=5)
+        self.volume_label.grid(row=0, column=2)
+        tk.Button(volume, text="+", font=BIG, width=3,
+                  command=lambda: self.change_volume(+5)).grid(row=0, column=3, padx=2)
+        self.show_volume(self.robo.volume())
         self.voice_status = tk.Label(box, text="Voice is off. The first click loads it "
                                                "(about 20 s, stay quiet at the end).",
                                      font=SMALL, fg=GREY, wraplength=480, justify="left")
@@ -229,6 +243,23 @@ class App:
         scroll.pack(side="right", fill="y")
         self.transcript.tag_config("you", foreground="#0969da")
         self.transcript.tag_config("robo", foreground=GREEN)
+
+    def load_speech(self):
+        """Runs in the background when the panel opens."""
+        try:
+            self.robo.load_speech()
+        except Exception as error:
+            self.post(lambda: self.voice_says(f"Couldn't load the speaking voice: {error}", True))
+
+    def show_volume(self, percent):
+        self.volume_label.config(text="?" if percent is None else f"{percent}%")
+
+    def change_volume(self, step):
+        percent = self.robo.volume(step)
+        self.show_volume(percent)
+        if percent is None:
+            self.say("Couldn't change the speaker volume (is the USB speaker plugged in?)",
+                     error=True)
 
     def post(self, job):
         """Run job on the window's thread (Tkinter and the arm must only be used there)."""
@@ -356,6 +387,8 @@ class App:
         box.pack(fill="x", padx=4, pady=4)
         tk.Checkbutton(box, text="Wave and say hello when someone new appears",
                        variable=self.greet_on, font=SMALL).pack(anchor="w")
+        tk.Label(box, text="Works on its own. Paused while you're talking with Robo.",
+                 font=SMALL, fg=GREY).pack(anchor="w")
         self.camera_status = tk.Label(box, text="Camera: no detections yet", font=SMALL, fg=GREY)
         self.camera_status.pack(anchor="w", pady=(4, 0))
 
@@ -376,7 +409,7 @@ class App:
         # Don't interrupt: skip the greeting while busy (they're probably talking to Robo)
         if not self.greet_on.get() or self.voice_busy or self.moving or self.robo.talking():
             return
-        if self.robo.loaded:
+        if self.robo.piper is not None:  # the speaking voice is ready
             self.robo.say(GREETING)
             self.add_line("Robo", GREETING)
         self.play("wave", GESTURES["w"][1])

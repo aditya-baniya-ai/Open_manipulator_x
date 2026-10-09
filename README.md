@@ -340,12 +340,12 @@ The control panel has everything in one window:
 
 | Left side | Right side |
 |---|---|
-| **Gestures** (including your saved moves) | **Talk with Robo**: **Talk once** listens for one question and answers it, then stops. **Live** keeps listening and answering until you turn it off (or say "goodbye"). **Stop talking** cuts Robo off. A transcript shows the conversation. |
-| **Move joints** (hold `-` / `+`) with live angles | **Camera greeting**: when someone new appears, Robo waves and says hello (untick to turn it off). |
+| **Gestures** (including your saved moves) | **Talk with Robo**: **Talk once** listens for one question and answers it, then stops. **Live** keeps listening and answering until you turn it off (or say "goodbye"). **Stop talking** cuts Robo off. **Speaker volume** `-` / `+` in 5% steps. A transcript shows the conversation. |
+| **Move joints** (hold `-` / `+`) with live angles | **Camera greeting**: when someone new appears, Robo waves and says hello, on its own, without clicking anything (untick to turn it off). It's paused during Talk once and Live, so it doesn't greet everyone walking past while you're talking. |
 | **Gripper** open / close | |
 | **Record your own move** | |
 
-The first click on Talk once or Live loads the voice (about 20 seconds; stay quiet at the end while it measures the room's noise). Robo skips greeting people while you're talking to it.
+Robo's speaking voice loads by itself when the panel opens (a few seconds), so greetings talk right away. The first click on Talk once or Live loads the listening part (about 20 seconds; stay quiet at the end while it measures the room's noise). The volume buttons change the speaker until the next reboot; to keep a level after rebooting, run `sudo alsactl store`.
 
 **To stop:** hold the real arm, then click **Quit** (or press Ctrl+C in the terminal). Everything stops. If something is left running, run `~/Documents/Open_manipulator_x/launch/stop.sh`.
 

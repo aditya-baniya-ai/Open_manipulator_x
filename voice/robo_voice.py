@@ -23,6 +23,7 @@ import listen  # noqa: E402
 from listen import find_gesture, loudness, listen_for_sentence, start_mic  # noqa: E402
 
 GREETING = "Hello! I'm Robo. Welcome to the Ingram Hall Makerspace!"
+VOLUME_CONTROL = "Speaker"  # the speaker's volume control (see: amixer -c Device scontrols)
 DEFAULT_VOICE = str(Path.home() / "piper_voices/en_US-lessac-medium.onnx")
 
 OLLAMA_URL = "http://localhost:11434/api/chat"
@@ -136,7 +137,10 @@ def is_goodbye(text):
 
 
 class RoboVoice:
-    """Everything Robo needs to listen and talk. Call load() once before using it."""
+    """Everything Robo needs to listen and talk.
+
+    load_speech() is enough to talk (quick); load() also gets ready to listen.
+    """
 
     def __init__(self, model="llama3.2:3b", whisper_size="small", voice=DEFAULT_VOICE,
                  speaker="plughw:CARD=Device,DEV=0", mic="plughw:CARD=BRIO,DEV=0",
@@ -144,16 +148,26 @@ class RoboVoice:
         self.model, self.whisper_size, self.voice_path = model, whisper_size, voice
         self.speaker, self.mic, self.threshold = speaker, mic, threshold
         self.playing = None  # the aplay process while Robo is talking
-        self.loaded = False
+        self.piper = None    # the voice, once loaded
+        self.loaded = False  # ready to listen and answer
+        # The sound card's name, e.g. "Device" from plughw:CARD=Device,DEV=0
+        match = re.search(r"CARD=([^,]+)", speaker)
+        self.card = match.group(1) if match else None
         self.lock = threading.Lock()  # one conversation step at a time
 
+    def load_speech(self):
+        """Load just the voice, so Robo can talk (a couple of seconds)."""
+        if self.piper is None:
+            from piper import PiperVoice
+            self.piper = PiperVoice.load(self.voice_path)
+
     def load(self, log=print):
-        """Load the models and start the microphone (stay quiet for the last second)."""
+        """Load everything for listening and answering, and start the microphone
+        (stay quiet for the last second)."""
         log(f"Loading Whisper ({self.whisper_size}) and the voice ...")
         import whisper
-        from piper import PiperVoice
+        self.load_speech()
         self.ears = whisper.load_model(self.whisper_size, device="cuda")
-        self.piper = PiperVoice.load(self.voice_path)
 
         knowledge = KNOWLEDGE.read_text() if KNOWLEDGE.exists() else "(no facts file found)"
         if "## " in knowledge:
@@ -195,6 +209,7 @@ class RoboVoice:
     def say(self, text):
         """Start saying text on the speaker (doesn't wait)."""
         self.stop_talking()
+        self.load_speech()
         path = Path(tempfile.gettempdir()) / "robo_says.wav"
         with wave.open(str(path), "wb") as wav_file:
             self.piper.synthesize_wav(text, wav_file)
@@ -211,6 +226,20 @@ class RoboVoice:
         if self.talking():
             self.playing.kill()
             self.playing.wait()
+
+    def volume(self, change=None):
+        """The speaker volume in percent (or None if unknown). change=+5 or -5 adjusts it."""
+        if self.card is None:
+            return None
+        command = ["amixer", "-c", self.card, "sset" if change else "sget", VOLUME_CONTROL]
+        if change:
+            command += [f"{abs(change)}%{'+' if change > 0 else '-'}", "unmute"]
+        try:
+            output = subprocess.run(command, capture_output=True, text=True, timeout=3).stdout
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        match = re.search(r"\[(\d+)%\]", output)
+        return int(match.group(1)) if match else None
 
     def close(self):
         self.stop_talking()
