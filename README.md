@@ -531,6 +531,8 @@ python3 ~/Documents/Open_manipulator_x/voice/chat.py
 
 It prints `You: ...` and `Robo: ... [gesture]` for each exchange, and remembers the last few. Pause briefly after each sentence. Say "goodbye" or press Ctrl+C to stop.
 
+Robo gives short answers to greetings and longer, descriptive ones (3 to 5 sentences) to questions. The gesture is picked by simple rules: a gesture or saved move you name, a wave for hello or goodbye, a bow for thank you, a head shake when it declines an off-topic question, looking around when you talk about the Makerspace, and a nod otherwise. To change how Robo talks, edit `PERSONALITY` at the top of `voice/chat.py`.
+
 | Option | What it does |
 |---|---|
 | `--wake robo` | only answer sentences that contain "Robo" (so it doesn't reply to everyone talking nearby) |

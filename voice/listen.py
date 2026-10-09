@@ -100,7 +100,7 @@ def find_gesture(text, gestures):
     sentence = " ".join(words)
     # Moves you saved yourself, matched by their full name
     for key, (name, _) in gestures.items():
-        if key not in COMMANDS and name.lower() in sentence:
+        if key not in COMMANDS and name.lower().replace("_", " ") in sentence:
             return key
     for key, triggers in COMMANDS.items():
         if any(t in words for t in triggers):
