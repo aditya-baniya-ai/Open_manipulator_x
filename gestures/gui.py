@@ -1,7 +1,7 @@
 """
 Robo's control panel: buttons for gestures, moving each joint, the gripper and
-recording your own moves; talking with Robo (once, or live); and greeting people the
-camera sees.
+recording your own moves; the camera view with YOLO's boxes; greeting people the
+camera sees; and talking with Robo (once, or live).
 
 Run it while the arm (or the simulation) is launched (see README.md):
     python3 gui.py
@@ -27,7 +27,14 @@ import tkinter as tk
 from pathlib import Path
 
 import rclpy
+from sensor_msgs.msg import CompressedImage
 from std_msgs.msg import Bool
+
+try:  # for showing the camera video (installed with YOLO)
+    import cv2
+    import numpy as np
+except ImportError:
+    cv2 = None
 
 from gestures import (
     GESTURES, GRIPPER, JOINTS, Gesturer, catch_up, connect, jog, key_problem, load_saved,
@@ -42,6 +49,9 @@ JOINT_NAMES = ["Base", "Shoulder", "Elbow", "Wrist"]
 FONT = ("Helvetica", 14)
 BIG = ("Helvetica", 14, "bold")
 SMALL = ("Helvetica", 12)
+VIDEO_SIZE = (480, 360)  # the camera view, in pixels
+NO_VIDEO_AFTER = 2.0     # seconds without video before saying "Camera not connected"
+CAMERA_START_TIME = 20.0 # at startup, wait this long for detection to load first
 GREEN, RED, GREY = "#1a7f37", "#cf222e", "#57606a"
 ONCE_TIMEOUT = 10  # seconds "Talk once" waits for you to start speaking
 
@@ -73,13 +83,14 @@ class App:
         self.status.pack(pady=(10, 4))
         columns = tk.Frame(root)
         columns.pack(padx=6, pady=(0, 4))
-        left, right = tk.Frame(columns), tk.Frame(columns)
+        left, middle, right = tk.Frame(columns), tk.Frame(columns), tk.Frame(columns)
         left.grid(row=0, column=0, sticky="n")
-        right.grid(row=0, column=1, sticky="n")
+        middle.grid(row=0, column=1, sticky="n")
+        right.grid(row=0, column=2, sticky="n")
 
         self.build_arm_controls(left)
+        self.build_camera(middle)
         self.build_voice(right)
-        self.build_greeting(right)
 
         tk.Button(root, text="Quit", font=FONT, width=10, command=self.quit).pack(pady=(4, 10))
         root.protocol("WM_DELETE_WINDOW", self.quit)
@@ -151,6 +162,7 @@ class App:
             if joint in self.node.joints:
                 label.config(text=f"{math.degrees(self.node.joints[joint]):+.0f}°")
         self.check_greeting()
+        self.show_video()
         self.publish_busy()
         self.next_spin = self.root.after(50, self.spin)
 
@@ -420,15 +432,53 @@ class App:
 
     # ---------- Camera greeting ----------
 
-    def build_greeting(self, parent):
-        box = tk.LabelFrame(parent, text="Camera greeting", font=FONT, padx=8, pady=8)
+    def build_camera(self, parent):
+        box = tk.LabelFrame(parent, text="Camera", font=FONT, padx=8, pady=8)
         box.pack(fill="x", padx=4, pady=4)
+        # The video from perception/detect.py, with YOLO's boxes
+        frame = tk.Frame(box, width=VIDEO_SIZE[0], height=VIDEO_SIZE[1], bg="black")
+        frame.pack_propagate(False)  # keep the size while it shows text instead of video
+        frame.pack()
+        self.video = tk.Label(frame, bg="black", fg="white", font=BIG,
+                              text="Starting the camera ...")
+        self.video.pack(fill="both", expand=True)
+        self.photo = None          # the picture currently shown (Tkinter needs a reference)
+        self.video_msg = None      # the newest video frame, not shown yet
+        self.video_at = None       # when the last video frame arrived
+        self.started_at = time.monotonic()
+        self.node.create_subscription(CompressedImage, "/detections/image/compressed",
+                                      self.on_video, 1)
+
         tk.Checkbutton(box, text="Wave and say hello when someone new appears",
-                       variable=self.greet_on, font=SMALL).pack(anchor="w")
+                       variable=self.greet_on, font=SMALL).pack(anchor="w", pady=(6, 0))
         tk.Label(box, text="Works on its own. Paused while you're talking with Robo.",
                  font=SMALL, fg=GREY).pack(anchor="w")
         self.camera_status = tk.Label(box, text="Camera: no detections yet", font=SMALL, fg=GREY)
         self.camera_status.pack(anchor="w", pady=(4, 0))
+
+    def on_video(self, msg):
+        self.video_msg, self.video_at = msg, time.monotonic()
+
+    def show_video(self):
+        """Show the newest camera frame, or say the camera isn't connected."""
+        now = time.monotonic()
+        if self.video_msg is not None and cv2 is not None:
+            msg, self.video_msg = self.video_msg, None
+            image = cv2.imdecode(np.frombuffer(bytes(msg.data), np.uint8), cv2.IMREAD_COLOR)
+            if image is not None:
+                rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                height, width = rgb.shape[:2]
+                ppm = b"P6 %d %d 255\n" % (width, height) + rgb.tobytes()
+                self.photo = tk.PhotoImage(data=ppm, format="PPM")
+                self.video.config(image=self.photo, text="")
+            return
+        # No video lately: give detection time to load at startup, then say so
+        quiet_since = self.video_at if self.video_at is not None else self.started_at
+        limit = NO_VIDEO_AFTER if self.video_at is not None else CAMERA_START_TIME
+        if now - quiet_since > limit and self.photo is not False:
+            self.photo = False  # remember we're showing the message
+            self.video.config(image="", text="Camera not connected" if cv2 is not None
+                              else "Camera view needs OpenCV (python3 -m pip install opencv-python)")
 
     def on_person(self, msg):
         self.camera_seen = True

@@ -334,16 +334,16 @@ To use the simulated arm instead (RViz opens):
 ~/Documents/Open_manipulator_x/launch/robo.sh --sim
 ```
 
-Other options: `--rviz` (real arm, also shown in RViz), `--no-camera` (no camera or detection), `--no-video` (detection without its video window).
+Other options: `--rviz` (real arm, also shown in RViz), `--no-camera` (no camera or detection), and the detection speed options in [Faster detection](#faster-detection-running-everything-together).
 
-The control panel has everything in one window:
+The control panel has everything in one window, in three columns:
 
-| Left side | Right side |
-|---|---|
-| **Gestures** (including your saved moves) | **Talk with Robo**: **Talk once** listens for one question and answers it, then stops. **Live** keeps listening and answering until you turn it off (or say "goodbye"). **Stop talking** cuts Robo off. **Speaker volume** `-` / `+` in 5% steps. A transcript shows the conversation. |
-| **Move joints** (hold `-` / `+`) with live angles | **Camera greeting**: when someone new appears, Robo waves and says hello, on its own, without clicking anything (untick to turn it off). It's paused during Talk once and Live (detection pauses too, so the LLM gets the whole GPU and answers faster), so it doesn't greet everyone walking past while you're talking. |
-| **Gripper** open / close | |
-| **Record your own move** | |
+| Left: the arm | Middle: the camera | Right: talking with Robo |
+|---|---|---|
+| **Gestures** (including your saved moves) | **Live video** with YOLO's boxes. If no video arrives (camera unplugged or not working), it says **"Camera not connected"**, and the video comes back by itself once the camera works again. | **Talk once** listens for one question and answers it, then stops. **Live** keeps listening and answering until you turn it off (or say "goodbye"). **Stop talking** cuts Robo off. |
+| **Move joints** (hold `-` / `+`) with live angles | **Camera greeting**: when someone new appears, Robo waves and says hello, on its own, without clicking anything (untick to turn it off). It's paused during Talk once and Live (detection pauses too, so the LLM gets the whole GPU and answers faster), so it doesn't greet everyone walking past while you're talking. | **Speaker volume** `-` / `+` in 5% steps. |
+| **Gripper** open / close | Whether someone is in view right now. | A **transcript** of the conversation, with a timing line under each answer. |
+| **Record your own move** | | |
 
 Robo **streams** its answers: it starts speaking as soon as the first sentence is written, while the LLM is still writing the rest, and the gesture starts with the first sentence. Under each answer, a grey line shows how long it took, from when you stopped talking: `(heard in 0.7 s · first words after 1.6 s · full answer written after 6.2 s)`.
 

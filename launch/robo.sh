@@ -7,7 +7,6 @@
 #   ~/Documents/Open_manipulator_x/launch/robo.sh --sim          simulated arm in RViz
 #   ~/Documents/Open_manipulator_x/launch/robo.sh --rviz         real arm, also shown in RViz
 #   ~/Documents/Open_manipulator_x/launch/robo.sh --no-camera    no camera or detection
-#   ~/Documents/Open_manipulator_x/launch/robo.sh --no-video     detection without its video window
 #
 # Detection speed options (see README, "Faster detection"):
 #   --busy-fps 20          keep detecting 20 frames a second while Robo talks (default: pause)
@@ -27,18 +26,16 @@ REPO="$(dirname "$HERE")"
 SIM=false
 RVIZ=false
 CAMERA=true
-VIDEO=true
 DETECT_ARGS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --sim) SIM=true ;;
     --rviz) RVIZ=true ;;
     --no-camera) CAMERA=false ;;
-    --no-video) VIDEO=false ;;
     --busy-fps|--imgsz) DETECT_ARGS+=("$1" "$2"); shift ;;
     --yolo) DETECT_ARGS+=(--model "$2"); shift ;;
     *) echo "Unknown option: $1"
-       echo "Use: --sim --rviz --no-camera --no-video --busy-fps N --yolo FILE --imgsz N"
+       echo "Use: --sim --rviz --no-camera --busy-fps N --yolo FILE --imgsz N"
        exit 1 ;;
   esac
   shift
@@ -97,7 +94,7 @@ if [ "$CAMERA" = true ]; then
   GROUPS_TO_STOP+=($!)
 
   echo "Starting detection (YOLO) ...   log: /tmp/robo_detect.log"
-  [ "$VIDEO" = false ] && DETECT_ARGS+=(--no-window)
+  DETECT_ARGS+=(--no-window)  # the video shows in the control panel instead
   PYTHONUNBUFFERED=1 python3 "$REPO/perception/detect.py" "${DETECT_ARGS[@]}" \
     > /tmp/robo_detect.log 2>&1 &
   GROUPS_TO_STOP+=($!)

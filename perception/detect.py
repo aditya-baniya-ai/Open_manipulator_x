@@ -22,6 +22,9 @@ Faster options (see README, "Faster detection"):
 
 Every 5 seconds it logs how long YOLO takes per frame, to compare settings.
 
+It also sends a small copy of the video (with the boxes) to Robo's control panel on
+/detections/image/compressed (JPEG, about 15 frames a second).
+
 It shows a window with boxes around what it finds (press q in the window to quit),
 and publishes:
     /person_detected   std_msgs/Bool     true while a person is in view
@@ -38,11 +41,13 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import CompressedImage, Image
 from std_msgs.msg import Bool, String
 from ultralytics import YOLO
 
 YOLO_MODEL = "yolo11n.pt"            # small and fast, knows 80 objects
+PREVIEW_WIDTH = 480                  # size of the video sent to the control panel
+PREVIEW_FPS = 15                     # how often it's sent
 WORLD_MODEL = "yolov8s-worldv2.pt"   # finds any object you name
 
 
@@ -53,6 +58,8 @@ class Detector(Node):
         self.create_subscription(Image, "/image_raw", self.on_image, qos_profile_sensor_data)
         self.person_pub = self.create_publisher(Bool, "/person_detected", 10)
         self.detections_pub = self.create_publisher(String, "/detections", 10)
+        self.preview_pub = self.create_publisher(CompressedImage,
+                                                 "/detections/image/compressed", 1)
         # The control panel says when Robo is busy talking; then we pause to free the GPU
         self.busy_until = 0.0
         self.create_subscription(Bool, "/robo_busy", self.on_busy, 10)
@@ -129,6 +136,7 @@ def main():
     last_check = 0.0
     busy = False
     last_result = None              # the latest detection, drawn on frames in between
+    last_preview = 0.0
     times, stats_since = [], time.monotonic()
     try:
         while rclpy.ok():
@@ -177,12 +185,25 @@ def main():
                              f"{len(times) / (now - stats_since):.1f} frames checked per second")
                 times, stats_since = [], now
 
+            # Always show the live video, with the latest boxes drawn on it
+            shown = last_result.plot(img=frame) if last_result is not None else frame
+            if busy:
+                label(shown, "Robo is talking: detection " + (
+                    f"at {args.busy_fps:g}/s" if args.busy_fps else "paused"), 0)
+
+            # A small JPEG copy for the control panel
+            if now - last_preview >= 1.0 / PREVIEW_FPS:
+                last_preview = now
+                height, width = shown.shape[:2]
+                small = cv2.resize(shown, (PREVIEW_WIDTH, height * PREVIEW_WIDTH // width))
+                ok, jpeg = cv2.imencode(".jpg", small, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                if ok:
+                    preview = CompressedImage()
+                    preview.format = "jpeg"
+                    preview.data = jpeg.tobytes()
+                    node.preview_pub.publish(preview)
+
             if not args.no_window:
-                # Always show the live video; draw the latest boxes on it
-                shown = last_result.plot(img=frame) if last_result is not None else frame
-                if busy:
-                    label(shown, "Robo is talking: detection " + (
-                        f"at {args.busy_fps:g}/s" if args.busy_fps else "paused"), 0)
                 cv2.imshow("detections (press q to quit)", shown)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
