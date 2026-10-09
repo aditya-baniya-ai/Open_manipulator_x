@@ -416,7 +416,7 @@ Then start the arm and the window together:
 ~/Documents/Open_manipulator_x/launch/gestures.sh --gui
 ```
 
-Add `--sim` to use the simulated arm (`gestures.sh --sim --gui`), or `--rviz` to also see the real arm move live in RViz (`gestures.sh --rviz --gui`). Hold a joint's `-` / `+` button to keep it moving; its live angle is shown next to the buttons. The window (and the camera view) keeps running while a gesture plays; gestures can't overlap, so clicking another one waits until the first is finished. The Quit button also stops the arm.
+Add `--sim` to use the simulated arm (`gestures.sh --sim --gui`), or `--rviz` to also see the real arm move live in RViz (`gestures.sh --rviz --gui`). Hold a joint's `-` / `+` button to keep it moving; its live angle is shown next to the buttons. The window (and the camera view) keeps running while a gesture plays; gestures can't overlap: clicking another one while a gesture plays shows "Wait for the current move to finish". The Quit button also stops the arm.
 
 ### Option B: Move each joint with the keyboard (Terminals 2 and 3)
 
