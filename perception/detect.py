@@ -164,7 +164,7 @@ def main():
                 # Keep the average rate (e.g. 20 of the camera's 30 frames a second)
                 last_check = max(last_check + 1.0 / rate, now - 1.0 / rate) if rate else now
                 started = time.perf_counter()
-                result = model(frame, conf=args.conf, imgsz=args.imgsz, half=True,
+                result = model(frame, conf=args.conf, imgsz=args.imgsz, quantize=16,
                                verbose=False)[0]
                 times.append(time.perf_counter() - started)
                 last_result = result
