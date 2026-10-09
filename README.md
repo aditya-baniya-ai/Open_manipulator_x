@@ -26,7 +26,8 @@ A table robot built from a ROBOTIS OpenMANIPULATOR-X arm and an NVIDIA Jetson Or
 | Microphone (BRIO) + speech to text (Whisper on the GPU) | ✅ working |
 | Voice commands ("wave", "bow", ...) | 🚧 written, not tested yet |
 | Local LLM (Ollama) | 🚧 installing |
-| Voice replies (needs a speaker), picking | ⏳ planned |
+| USB speaker | ✅ working |
+| Voice replies (text to speech), picking | ⏳ planned |
 
 ## What you need
 
@@ -252,6 +253,28 @@ import whisper
 m = whisper.load_model('base', device='cuda')
 print('Heard:', m.transcribe('$HOME/mic_test.wav', fp16=True)['text'])
 "
+```
+
+
+### Step 11. Set up the speaker
+
+Plug a USB speaker into the Jetson. Check it's found (ours is listed as `USB PnP Audio Device`, card name `Device`):
+
+```bash
+aplay -l
+```
+
+Turn its volume up to 100% and save the setting so it survives a reboot:
+
+```bash
+amixer -c Device set Speaker 100% unmute
+sudo alsactl store
+```
+
+(If your speaker has a different name, use it instead of `Device`; `amixer -c Device scontrols` lists the volume controls.) Test it, you should hear "Front Left", "Front Right":
+
+```bash
+speaker-test -D plughw:CARD=Device,DEV=0 -c 2 -t wav -l 1
 ```
 
 Setup is done.
