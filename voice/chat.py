@@ -113,8 +113,10 @@ FACTS
 def ask_llm(model, messages):
     """Send the conversation to Ollama and return Robo's reply as plain spoken text."""
     body = json.dumps({"model": model, "messages": messages, "stream": False,
-                       # Less randomness, so it sticks to the facts; room for ~80 words
-                       "options": {"temperature": 0.3, "num_predict": 250}}).encode()
+                       # Less randomness, so it sticks to the facts; room for ~80 words;
+                       # a context big enough for the whole facts file plus the chat
+                       "options": {"temperature": 0.3, "num_predict": 250,
+                                   "num_ctx": 8192}}).encode()
     request = urllib.request.Request(OLLAMA_URL, body, {"Content-Type": "application/json"})
     with urllib.request.urlopen(request, timeout=60) as response:
         reply = json.loads(response.read())["message"]["content"]
