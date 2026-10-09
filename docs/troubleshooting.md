@@ -176,6 +176,17 @@ So nothing in the software moves it: the base servo itself overshoots. ROBOTIS g
 
 The voice file isn't there (for example the download failed). Check `ls -la ~/piper_voices` shows `en_US-lessac-medium.onnx` (about 60 MB) and its `.onnx.json`; if not, download it again (README, setup Step 12). Pass the full path to the voice with `-m ~/piper_voices/en_US-lessac-medium.onnx`.
 
+## "System throttled due to over-current" keeps popping up
+
+**What it means:** the Jetson is drawing more current than its limit, so it briefly slows itself down to stay safe. It protects the hardware (nothing gets damaged), but everything runs slower while it happens.
+
+**Cause:** full-power mode (MAXN, which Piper needs for all 8 CPU cores) has no power limit, and running everything at once (YOLO on every camera frame, the LLM, Whisper, RViz, the arm) can go over it.
+
+**Fixes:**
+- `perception/detect.py` now checks 5 camera frames a second instead of every frame (`--fps 10` for more), and `launch/robo.sh` runs the camera at 15 fps. Run `git pull` to get this.
+- Use a power mode that keeps all 8 CPU cores on but has a power budget (for example 25W). List the modes with `grep -E "POWER_MODEL|CORE_4|CORE_7" /etc/nvpmodel.conf`; a mode where `CORE_4` to `CORE_7` are `1` keeps all cores on. Switch with `sudo nvpmodel -m <number>` (it may ask to reboot).
+- Use the power adapter that came with the Jetson kit; a weaker one makes this much more likely.
+
 ## A servo ignores a target near 0° or 360°
 
 **Symptom:** in the base swing test, the base started at 348°, so `start + 90` went past 360 and the servo rejected it.

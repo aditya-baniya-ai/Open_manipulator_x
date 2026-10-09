@@ -5,6 +5,9 @@ Start the camera first (see README.md), then:
     python3 detect.py                      # regular YOLO: 80 everyday objects
     python3 detect.py --find pencil cup    # YOLO-World: only the words you give it
 
+It checks 5 camera frames a second by default (--fps 10 for more): plenty to notice
+someone walking in, and much less work for the Jetson than every frame.
+
 It shows a window with boxes around what it finds (press q in the window to quit),
 and publishes:
     /person_detected   std_msgs/Bool     true while a person is in view
@@ -13,6 +16,7 @@ and publishes:
 
 import argparse
 import os
+import time
 from pathlib import Path
 
 import cv2
@@ -67,6 +71,8 @@ def main():
                         help="use YOLO-World and look only for these objects")
     parser.add_argument("--conf", type=float, default=0.4,
                         help="how sure YOLO must be to report something (0-1, default 0.4)")
+    parser.add_argument("--fps", type=float, default=5.0,
+                        help="camera frames to check per second (default 5)")
     parser.add_argument("--no-window", action="store_true",
                         help="don't open the video window (e.g. over SSH)")
     args, ros_args = parser.parse_known_args()
@@ -80,11 +86,13 @@ def main():
     log.info("Waiting for camera images on /image_raw ...")
 
     last_seen = None
+    last_check = 0.0
     try:
         while rclpy.ok():
             rclpy.spin_once(node, timeout_sec=0.01)
-            if node.frame is None:
-                continue
+            if node.frame is None or time.monotonic() - last_check < 1.0 / args.fps:
+                continue  # skip frames between checks, to save power
+            last_check = time.monotonic()
             frame, node.frame = to_bgr(node.frame), None
 
             result = model(frame, conf=args.conf, verbose=False)[0]
