@@ -20,6 +20,7 @@ Options:
     --speaker DEVICE   speaker (default plughw:CARD=Device,DEV=0, the USB speaker)
     --mic DEVICE       microphone (default plughw:CARD=BRIO,DEV=0)
 
+Press Enter while Robo is talking to cut it off.
 Say "goodbye" to stop, or press Ctrl+C.
 """
 
@@ -29,6 +30,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 import urllib.request
 import wave
 from pathlib import Path
@@ -153,6 +155,20 @@ def speak(voice, text, speaker):
     return subprocess.Popen(["aplay", "-q", "-D", speaker, str(path)])
 
 
+class Interrupter:
+    """Lets you press Enter to cut Robo off while it's talking."""
+
+    def __init__(self):
+        self.playing = None  # the aplay process while Robo is talking
+        threading.Thread(target=self._watch_keyboard, daemon=True).start()
+
+    def _watch_keyboard(self):
+        for _ in sys.stdin:  # every press of Enter
+            if self.playing is not None and self.playing.poll() is None:
+                self.playing.kill()
+                print("  (stopped talking)")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Talk with Robo, the robot arm.")
     parser.add_argument("--test", action="store_true",
@@ -202,7 +218,9 @@ def main():
         print("Measuring background noise, please stay quiet for 1 second ...")
         noise = np.median([loudness(chunks.get()) for _ in range(10)])
         threshold = max(3 * noise, 200)
-    print("Listening. Talk to Robo! (Say 'goodbye' or press Ctrl+C to stop.)")
+    print("Listening. Talk to Robo! Press Enter to cut it off while it's talking.")
+    print("(Say 'goodbye' or press Ctrl+C to stop.)")
+    interrupter = Interrupter()
     if args.wake:
         print(f"Start each sentence with '{args.wake}'.")
 
@@ -232,10 +250,11 @@ def main():
             print(f"Robo:  {reply}" + (f"  [{GESTURES[gesture][0]}]" if gesture else ""))
 
             # Talk and move at the same time, then wait for both
-            playing = speak(voice, reply, args.speaker)
+            playing = interrupter.playing = speak(voice, reply, args.speaker)
             if node is not None and gesture:
                 run_gesture(node, GESTURES[gesture][1])
             playing.wait()
+            interrupter.playing = None
             # Throw away what the mic heard while the robot talked and moved
             while not chunks.empty():
                 chunks.get_nowait()

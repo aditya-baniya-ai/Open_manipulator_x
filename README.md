@@ -529,7 +529,7 @@ Then start the arm on its own in another terminal: the real arm with `ros2 launc
 python3 ~/Documents/Open_manipulator_x/voice/chat.py
 ```
 
-It prints `You: ...` and `Robo: ... [gesture]` for each exchange, and remembers the last few. Pause briefly after each sentence. Say "goodbye" or press Ctrl+C to stop.
+It prints `You: ...` and `Robo: ... [gesture]` for each exchange, and remembers the last few. Pause briefly after each sentence. **Press Enter** to cut Robo off while it's talking (it goes straight back to listening). Say "goodbye" or press Ctrl+C to stop.
 
 Robo gives short answers to greetings and longer, descriptive ones (3 to 5 sentences) to questions. The gesture is picked by simple rules: a gesture or saved move you name, a wave for hello or goodbye, a bow for thank you, a head shake when it declines an off-topic question, looking around when you talk about the Makerspace, and a nod otherwise. To change how Robo talks, edit `PERSONALITY` at the top of `voice/chat.py`.
 
