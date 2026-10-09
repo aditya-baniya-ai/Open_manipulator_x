@@ -216,9 +216,6 @@ class App:
         self.live_button.grid(row=0, column=1, padx=4, pady=2)
         tk.Button(buttons, text="Stop talking", font=FONT, width=10,
                   command=self.robo.stop_talking).grid(row=0, column=2, padx=4, pady=2)
-        tk.Button(buttons, text="Forget saved answers", font=SMALL,
-                  command=self.forget_answers).grid(row=1, column=0, columnspan=3,
-                                                    sticky="w", padx=4, pady=(2, 0))
         tk.Label(box, text="Talk once: one question and answer.   "
                            "Live: keeps listening until you turn it off.",
                  font=SMALL, fg=GREY).pack(anchor="w", pady=(2, 0))
@@ -388,14 +385,6 @@ class App:
 
         self.post(move)
         return done
-
-    def forget_answers(self):
-        if self.robo.cache is None:
-            self.voice_says("No saved answers yet.")
-            return
-        count = len(self.robo.cache.entries)
-        self.robo.cache.clear()
-        self.voice_says(f"Forgot {count} saved answers. Robo will think them through again.")
 
     def add_note(self, text):
         """A small grey line in the transcript, like the timing of the last answer."""
