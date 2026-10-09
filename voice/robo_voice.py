@@ -28,7 +28,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import listen  # noqa: E402
-from listen import find_gesture, loudness, listen_for_sentence, start_mic  # noqa: E402
+from listen import find_gesture, loudness, start_mic  # noqa: E402
 
 GREETING = "Hello! I'm Robo. Welcome to the Ingram Hall Makerspace!"
 VOLUME_CONTROL = "Speaker"  # the speaker's volume control (see: amixer -c Device scontrols)
@@ -37,7 +37,7 @@ DEFAULT_VOICE = str(Path.home() / "piper_voices/en_US-lessac-medium.onnx")
 OLLAMA_URL = "http://localhost:11434/api/chat"
 HISTORY = 6  # how many earlier exchanges the robot remembers
 KNOWLEDGE = Path(__file__).resolve().parent / "robo_knowledge.md"
-PAUSE = 1.2  # seconds of quiet that mean you've finished talking
+PAUSE = 0.8  # seconds of quiet that mean you've finished talking
 
 # Tells Whisper what kind of words to expect, so it hears them more reliably
 HEARING_HINT = ("Hello Robo. A conversation with Robo, a robot arm at the Ingram Hall "
@@ -56,6 +56,8 @@ HOW TO ANSWER
 - For questions about the Makerspace, Texas State, yourself, robotics or simulation:
   give a helpful, descriptive answer of 3 to 5 sentences (up to about 80 words), with
   specific details from FACTS. Explain like you're talking to a visitor.
+- Always begin with a very short first sentence of 2 to 5 words, like "Sure!",
+  "Great question!", "Happy to explain!" or "Hi there!", then continue with the rest.
 - For greetings, thanks and goodbyes: one short, warm sentence.
 - Spoken words only: no lists, no bullet points, no emojis, no markdown, no web links.
 
@@ -90,11 +92,11 @@ HEARING
 
 EXAMPLES OF GOOD ANSWERS
 Person: What is the Ingram Hall Makerspace?
-Robo: The Ingram Hall Makerspace is the Ingram School of Engineering's fabrication space at Texas State, about 11,000 square feet. It has the PawPrint Studio with 3D printers, laser cutters and electronics benches, an Industrial Space with professional machines, and welding and woodworking bays. Student teams like Bobcat Racing and Bobcat Aerospace build their projects here.
+Robo: Great question! The Ingram Hall Makerspace is the Ingram School of Engineering's fabrication space at Texas State, about 11,000 square feet. It has the PawPrint Studio with 3D printers, laser cutters and electronics benches, an Industrial Space with professional machines, and welding and woodworking bays. Student teams like Bobcat Racing and Bobcat Aerospace build their projects here.
 Person: When is it open?
-Robo: The Makerspace is open Monday to Friday, from 8 AM to 5 PM. It's in Ingram Hall, room 1201, and you can email ingrammakerspace@txstate.edu with any questions.
+Robo: Sure! The Makerspace is open Monday to Friday, from 8 AM to 5 PM. It's in Ingram Hall, room 1201, and you can email ingrammakerspace@txstate.edu with any questions.
 Person: How do you work?
-Robo: I'm a robot arm with four joints and a gripper, and each joint is a smart servo motor. My brain is an NVIDIA Jetson computer running ROS 2. I see with a camera, hear with speech recognition, and think and talk with AI models that all run right here, without the internet.
+Robo: Happy to explain! I'm a robot arm with four joints and a gripper, and each joint is a smart servo motor. My brain is an NVIDIA Jetson computer running ROS 2. I see with a camera, hear with speech recognition, and think and talk with AI models that all run right here, without the internet.
 Person: Who won the football game last night?
 Robo: {decline} Would you like to hear what I can do?
 Person: Thank you!
@@ -291,6 +293,7 @@ class RoboVoice:
         self.first_sound = None  # when the current answer started playing
         self.heard_at = self.text_at = None  # when you stopped talking / it was transcribed
         self.cache = None  # answers to recent questions, set up by load()
+        self.whisper_lock = threading.Lock()  # Whisper runs one transcription at a time
         self.piper = None    # the voice, once loaded
         self.loaded = False  # ready to listen and answer
         # The sound card's name, e.g. "Device" from plughw:CARD=Device,DEV=0
@@ -317,7 +320,6 @@ class RoboVoice:
             knowledge = knowledge[knowledge.index("## "):]  # skip the file's notes for editors
         self.messages = [{"role": "system",
                           "content": PERSONALITY.format(decline=DECLINE, knowledge=knowledge)}]
-        listen.SILENCE_END = PAUSE  # wait a little longer before deciding you've finished
         # Saved answers are only valid for these exact facts, personality, model and voice
         signature = hashlib.sha256("|".join([self.messages[0]["content"], self.model,
                                              self.voice_path]).encode()).hexdigest()
@@ -349,17 +351,79 @@ class RoboVoice:
             pass  # Ollama not running yet; the first question will say so
 
     def listen(self, timeout=None, stop=None):
-        """Wait for one sentence and return it as text (or None)."""
+        """Wait for one sentence and return it as text (or None if nobody spoke within
+        timeout seconds, it was too short, or stop got set).
+
+        To answer sooner, Whisper starts in the background the moment you pause, while
+        it's still waiting to be sure you've finished. If you keep talking, that early
+        transcription is thrown away and it tries again at your next pause."""
         while not self.chunks.empty():  # forget anything heard before now
             self.chunks.get_nowait()
-        audio = listen_for_sentence(self.chunks, self.threshold, timeout, stop)
-        if audio is None:
-            return None
+
+        # 1. Wait for someone to start speaking
+        before, waited = [], 0.0
+        while True:
+            if stop is not None and stop.is_set():
+                return None
+            if timeout is not None and waited >= timeout:
+                return None
+            chunk = self.chunks.get()
+            waited += 0.1
+            if loudness(chunk) > self.threshold:
+                break
+            before = (before + [chunk])[-listen.PRE_ROLL:]
+
+        # 2. Record until there's a long enough pause, transcribing early at each pause
+        speech, quiet, early = before + [chunk], 0, None
+        while len(speech) * 0.1 < listen.MAX_SPEECH and quiet * 0.1 < PAUSE:
+            chunk = self.chunks.get()
+            speech.append(chunk)
+            if loudness(chunk) <= self.threshold:
+                quiet += 1
+                if quiet == 1:  # a pause just started: transcribe everything so far
+                    early = self._transcribe_later(list(speech), spoken=len(speech) - 1)
+            else:
+                quiet = 0
+                if early is not None:
+                    early["stale"] = True  # they kept talking: that early text is out of date
+        spoken = len(speech) - quiet  # everything up to the last sound
+        if (spoken - len(before)) * 0.1 < listen.MIN_SPEECH:
+            return None  # too short to be speech (a click or a bump)
         self.heard_at = time.monotonic()
-        text = self.ears.transcribe(audio, fp16=True, language="en", initial_prompt=HEARING_HINT,
-                                    condition_on_previous_text=False)["text"].strip()
+
+        # 3. Use the early text if nothing was said after it, otherwise transcribe it all
+        text = None
+        if early is not None and early["spoken"] == spoken and not early["stale"]:
+            early["done"].wait()
+            text = early["text"]
+        if text is None:
+            with self.whisper_lock:
+                text = self._transcribe(speech)
         self.text_at = time.monotonic()
         return text or None
+
+    def _transcribe(self, chunks):
+        audio = np.concatenate(chunks).astype(np.float32) / 32768.0
+        return self.ears.transcribe(audio, fp16=True, language="en", initial_prompt=HEARING_HINT,
+                                    condition_on_previous_text=False)["text"].strip()
+
+    def _transcribe_later(self, chunks, spoken):
+        """Transcribe in the background. Returns a job: its "text" is ready once its
+        "done" event is set (None if it was skipped as out of date, or failed)."""
+        job = {"spoken": spoken, "stale": False, "text": None, "done": threading.Event()}
+
+        def work():
+            try:
+                with self.whisper_lock:
+                    if not job["stale"]:  # don't waste the GPU on out-of-date audio
+                        job["text"] = self._transcribe(chunks)
+            except Exception:
+                pass  # the final transcription will try again
+            finally:
+                job["done"].set()
+
+        threading.Thread(target=work, daemon=True).start()
+        return job
 
     def answer(self, heard):
         """Robo's spoken reply to what it heard (remembers the last few exchanges)."""

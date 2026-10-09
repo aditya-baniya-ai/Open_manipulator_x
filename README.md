@@ -569,7 +569,7 @@ Then start the arm on its own in another terminal: the real arm with `ros2 launc
 python3 ~/Documents/Open_manipulator_x/voice/chat.py
 ```
 
-It prints `You: ...` and `Robo: ... [gesture]` for each exchange, with a timing line under each answer, and remembers the last few. Robo starts speaking as soon as the first sentence of its answer is written. Pause briefly after each sentence. **Press Enter** to cut Robo off while it's talking (it goes straight back to listening). Say "goodbye" or press Ctrl+C to stop.
+It prints `You: ...` and `Robo: ... [gesture]` for each exchange, with a timing line under each answer, and remembers the last few. Robo starts speaking as soon as the first sentence of its answer is written. Pause briefly after each sentence (Robo decides you've finished after 0.8 s of quiet). **Press Enter** to cut Robo off while it's talking (it goes straight back to listening). Say "goodbye" or press Ctrl+C to stop.
 
 Robo gives short answers to greetings and longer, descriptive ones (3 to 5 sentences) to questions. The gesture is picked by simple rules: a gesture or saved move you name, a wave for hello or goodbye, a bow for thank you, a head shake when it declines an off-topic question, looking around when you talk about the Makerspace, and a nod otherwise. To change how Robo talks, edit `PERSONALITY` at the top of `voice/chat.py`.
 
@@ -581,7 +581,7 @@ Robo gives short answers to greetings and longer, descriptive ones (3 to 5 sente
 
 ### How fast is Robo?
 
-Measured on the Jetson Orin NX 16GB in 25W mode, with `llama3.2:3b` and Whisper `small`. Times are from when Robo notices you've stopped talking (after a 1.2 s pause).
+Measured on the Jetson Orin NX 16GB in 25W mode, with `llama3.2:3b` and Whisper `small`. Times are from when Robo notices you've stopped talking (after a pause: 1.2 s in the measurements below, 0.8 s now).
 
 **LLM writing speed** (`ollama run llama3.2:3b --verbose "What is a robot arm? Answer in 3 sentences."`, the `eval rate` line):
 
@@ -599,6 +599,15 @@ The GPU is shared, so YOLO checking 30 frames a second slowed the LLM (and Whisp
 | Before pausing YOLO | 3.3 s | 15.8 s | 26 s |
 | After pausing YOLO | 1.9 s | 6.6 s | 24.7 s |
 | Repeated question (from memory) | 1.8 s | 1.8 s | 1.8 s |
+
+**Faster listening and answering** (added after these measurements, to measure again):
+- Whisper starts transcribing **the moment you pause**, in the background, while Robo is still waiting to be sure you've finished. If you keep talking, that early text is thrown away and it tries again at your next pause, so nothing you say is lost. (Whisper always works on 30 seconds of audio at a time, so transcribing small pieces while you talk wouldn't make it faster; starting at the pause does.)
+- Robo decides you've finished after **0.8 s** of quiet instead of 1.2 s.
+- Robo **starts every answer with a very short sentence** ("Sure!", "Great question!"), so it can start speaking almost as soon as the LLM begins writing.
+
+| | Heard in | First words after | Full answer written after |
+|---|---|---|---|
+| With these changes | to measure | to measure | to measure |
 
 "First words after" is what you notice: Robo speaks while the LLM is still writing, so the full answer time mostly shows how long the answer is. From memory, Robo starts talking as soon as Whisper has understood the question.
 
