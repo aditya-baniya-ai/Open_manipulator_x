@@ -622,6 +622,15 @@ cd ~ && yolo export model=yolo11n.pt format=engine half=True imgsz=640 device=0
 
 The first command just checks TensorRT is there (it comes with JetPack). The export creates `~/yolo11n.engine`. Afterwards, check nothing else changed: `python3 -c "import numpy, onnxruntime; print(numpy.__version__, onnxruntime.__version__)"` should print `1.x` and `1.20.1`.
 
+**Measured on our Jetson** (25W mode, 640 pixel picture, average of 50 runs; `r.speed` from Ultralytics):
+
+| Model | Prepare (CPU) | Network (GPU) | Boxes (CPU) |
+|---|---|---|---|
+| `yolo11n.pt` | 7.6 ms | 26.9 ms | 3.7 ms |
+| `yolo11n.engine` (TensorRT) | 14.2 ms | 12.8 ms | 6.5 ms |
+
+The GPU part is what slows the LLM down. At 30 frames a second, the normal model keeps the GPU busy about 81% of the time; TensorRT about 38%, leaving more than twice as much for the LLM and Whisper. Building the engine took about 8 minutes, and it didn't change any other package versions.
+
 **Test plan:** start with each setting, ask Robo the same **new** question (one it hasn't answered before), and note YOLO's ms per frame from the log and the "first words after" time:
 
 | Setting | YOLO ms per frame | First words after |
