@@ -81,8 +81,10 @@ class App:
         tk.Button(root, text="Quit", font=FONT, width=10, command=self.quit).pack(pady=(4, 10))
         root.protocol("WM_DELETE_WINDOW", self.quit)
 
-        # Load the speaking voice right away, so greetings can talk without clicking anything
-        threading.Thread(target=self.load_speech, daemon=True).start()
+        # Get the voice ready right away: speaking first (a few seconds, so greetings can
+        # talk), then listening and the LLM, so Talk once / Live start immediately
+        self.after_load = None  # what to do once it's ready (a click while loading)
+        self.with_voice_loaded(lambda: None)
 
         # Keep ROS messages (joint angles) coming in while the window is open
         self.spin()
@@ -146,7 +148,7 @@ class App:
             if joint in self.node.joints:
                 label.config(text=f"{math.degrees(self.node.joints[joint]):+.0f}°")
         self.check_greeting()
-        self.root.after(50, self.spin)
+        self.next_spin = self.root.after(50, self.spin)
 
     def say(self, text, error=False):
         self.status.config(text=text, fg=RED if error else GREEN)
@@ -228,8 +230,7 @@ class App:
         tk.Button(volume, text="+", font=BIG, width=3,
                   command=lambda: self.change_volume(+5)).grid(row=0, column=3, padx=2)
         self.show_volume(self.robo.volume())
-        self.voice_status = tk.Label(box, text="Voice is off. The first click loads it "
-                                               "(about 20 s, stay quiet at the end).",
+        self.voice_status = tk.Label(box, text="Getting the voice ready ...",
                                      font=SMALL, fg=GREY, wraplength=480, justify="left")
         self.voice_status.pack(anchor="w", pady=(4, 4))
 
@@ -243,13 +244,6 @@ class App:
         scroll.pack(side="right", fill="y")
         self.transcript.tag_config("you", foreground="#0969da")
         self.transcript.tag_config("robo", foreground=GREEN)
-
-    def load_speech(self):
-        """Runs in the background when the panel opens."""
-        try:
-            self.robo.load_speech()
-        except Exception as error:
-            self.post(lambda: self.voice_says(f"Couldn't load the speaking voice: {error}", True))
 
     def show_volume(self, percent):
         self.volume_label.config(text="?" if percent is None else f"{percent}%")
@@ -289,24 +283,33 @@ class App:
             self.with_voice_loaded(lambda: self.start_voice(live=True))
 
     def with_voice_loaded(self, then):
-        """Load the voice models the first time (in the background), then run then()."""
+        """Run then() once the voice is ready, loading it in the background if needed."""
         if self.robo.loaded:
             then()
             return
+        self.after_load = then  # a click while loading runs as soon as it's ready
         if self.loading:
+            self.voice_says("Still getting ready ... it will start listening in a moment.")
             return
         self.loading = True
 
         def load():
             try:
+                self.robo.load_speech()  # quick: greetings can talk from now on
                 self.robo.load(log=lambda m: self.post(lambda: self.voice_says(m)))
-                self.post(then)
+                self.post(self.voice_ready)
             except Exception as error:
-                self.post(lambda: self.voice_says(f"Couldn't start the voice: {error}", True))
+                self.post(lambda e=error: self.voice_says(f"Couldn't start the voice: {e}", True))
             finally:
                 self.loading = False
 
         threading.Thread(target=load, daemon=True).start()
+
+    def voice_ready(self):
+        self.voice_says("Voice ready. Click Talk once, or turn Live on.")
+        then, self.after_load = self.after_load, None
+        if then:
+            then()
 
     def start_voice(self, live):
         self.voice_busy, self.live = True, live
@@ -415,6 +418,7 @@ class App:
         self.play("wave", GESTURES["w"][1])
 
     def quit(self):
+        self.root.after_cancel(self.next_spin)
         self.stop_voice.set()
         self.robo.close()
         self.root.destroy()

@@ -345,7 +345,7 @@ The control panel has everything in one window:
 | **Gripper** open / close | |
 | **Record your own move** | |
 
-Robo's speaking voice loads by itself when the panel opens (a few seconds), so greetings talk right away. The first click on Talk once or Live loads the listening part (about 20 seconds; stay quiet at the end while it measures the room's noise). The volume buttons change the speaker until the next reboot; to keep a level after rebooting, run `sudo alsactl store`.
+Everything gets ready by itself when the panel opens: the speaking voice first (a few seconds, so greetings talk right away), then listening and the LLM, which are also warmed up so the first answer is quick (about 20 to 30 seconds in total; please stay quiet near the end while it measures the room's noise). After that, Talk once and Live start listening immediately. If you click while it's still getting ready, it starts listening as soon as it's ready. The LLM stays loaded on the GPU while the panel is open. The volume buttons change the speaker until the next reboot; to keep a level after rebooting, run `sudo alsactl store`.
 
 **To stop:** hold the real arm, then click **Quit** (or press Ctrl+C in the terminal). Everything stops. If something is left running, run `~/Documents/Open_manipulator_x/launch/stop.sh`.
 

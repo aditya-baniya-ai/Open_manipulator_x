@@ -6,6 +6,7 @@ Used by chat.py (in the terminal) and gestures/gui.py (the control panel). Robo'
 personality is PERSONALITY below; its facts come from robo_knowledge.md.
 """
 
+import io
 import json
 import re
 import subprocess
@@ -96,11 +97,15 @@ FACTS
 {knowledge}"""
 
 
-def ask_llm(model, messages):
+def ask_llm(model, messages, max_words_tokens=250):
     """Send the conversation to Ollama and return Robo's reply as plain spoken text."""
     body = json.dumps({"model": model, "messages": messages, "stream": False,
+                       # Keep the model loaded on the GPU (Ollama unloads it after 5 idle
+                       # minutes otherwise, and reloading makes the next answer slow)
+                       "keep_alive": -1,
                        # Less randomness, so it sticks to the facts; room for ~80 words
-                       "options": {"temperature": 0.3, "num_predict": 250}}).encode()
+                       "options": {"temperature": 0.3,
+                                   "num_predict": max_words_tokens}}).encode()
     request = urllib.request.Request(OLLAMA_URL, body, {"Content-Type": "application/json"})
     with urllib.request.urlopen(request, timeout=60) as response:
         reply = json.loads(response.read())["message"]["content"]
@@ -176,12 +181,30 @@ class RoboVoice:
                           "content": PERSONALITY.format(decline=DECLINE, knowledge=knowledge)}]
         listen.SILENCE_END = PAUSE  # wait a little longer before deciding you've finished
 
+        log("Warming up (so the first answer is quick) ...")
+        self.warm_up()
+
         self.mic_proc, self.chunks = start_mic(self.mic)
         if self.threshold is None:
             log("Measuring background noise, please stay quiet for 1 second ...")
             noise = np.median([loudness(self.chunks.get()) for _ in range(10)])
             self.threshold = max(3 * noise, 200)
         self.loaded = True
+
+    def warm_up(self):
+        """Run each model once, so the first real question doesn't wait for start-up work."""
+        # Whisper: its first run on the GPU is slow
+        self.ears.transcribe(np.zeros(16000, dtype=np.float32), fp16=True, language="en")
+        # Piper: its first sentence is slow
+        with wave.open(io.BytesIO(), "wb") as wav_file:
+            self.piper.synthesize_wav("Ready.", wav_file)
+        # The LLM: loads it onto the GPU and reads Robo's long instructions once, so
+        # Ollama can reuse that work for every question
+        try:
+            ask_llm(self.model, self.messages + [{"role": "user", "content": "Hello"}],
+                    max_words_tokens=1)
+        except Exception:
+            pass  # Ollama not running yet; the first question will say so
 
     def listen(self, timeout=None, stop=None):
         """Wait for one sentence and return it as text (or None)."""
