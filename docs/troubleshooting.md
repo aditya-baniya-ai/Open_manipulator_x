@@ -157,6 +157,25 @@ So nothing in the software moves it: the base servo itself overshoots. ROBOTIS g
 
 **Fix:** give the base servo P 400, I 0, D 0 (README, setup Step 5b). It's sent at every launch and not stored in the servo permanently, and there's a backup and undo. Lowering only I and D wasn't enough; lowering P to 400 stopped it.
 
+## pip: "certificate is not yet valid" / "System time is way off"
+
+**Cause:** the Jetson's clock is wrong (it can lose the time when powered off), so secure websites look like they're from the future and pip refuses them.
+
+**Fix:** check `date`. Turn on automatic time sync with `sudo timedatectl set-ntp true` and check again after 30 seconds. If your network blocks time sync, set it by hand, e.g. `sudo date -s "2026-10-09 16:30"`.
+
+## Piper crashes: "Unknown CPU vendor" / "Assertion '__n < this->size()' failed"
+
+**Cause:** two things, both about onnxruntime (the engine Piper uses) on the Jetson Orin NX:
+
+1. onnxruntime 1.21 and newer have a bug on the Orin where the CPU maker isn't recognised ("Unknown CPU vendor").
+2. In the Jetson's lower power modes, CPU cores 4–7 are switched off. onnxruntime still tries to use them (`pthread_setaffinity_np failed ... mask: {5, }`) and crashes.
+
+**Fix:** use onnxruntime 1.20.1 (`pip3 install "onnxruntime==1.20.1" "numpy<2"`), and switch the Jetson to full power so all 8 cores are on: `cat /sys/devices/system/cpu/online` should show `0-7`; if not, run `sudo nvpmodel -m 0` and reboot. Our Jetson was in 15W mode (mode 2); switch back with `sudo nvpmodel -m 2` if needed.
+
+## Piper: "Unable to find voice"
+
+The voice file isn't there (for example the download failed). Check `ls -la ~/piper_voices` shows `en_US-lessac-medium.onnx` (about 60 MB) and its `.onnx.json`; if not, download it again (README, setup Step 12). Pass the full path to the voice with `-m ~/piper_voices/en_US-lessac-medium.onnx`.
+
 ## A servo ignores a target near 0° or 360°
 
 **Symptom:** in the base swing test, the base started at 348°, so `start + 90` went past 360 and the servo rejected it.

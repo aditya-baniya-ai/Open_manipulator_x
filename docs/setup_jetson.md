@@ -8,6 +8,7 @@ The commands are in the [README](../README.md). This file explains why each step
 - OS: Ubuntu 22.04.5 (so ROS 2 **Humble**)
 - JetPack: 6.2 (L4T R36.4.7, CUDA 12.6, Python 3.10)
 - Install type: native (no Docker), to avoid USB, GPU, audio and display passthrough problems
+- Power mode: MAXN (`sudo nvpmodel -m 0`, all 8 CPU cores on). It was 15W (mode 2), where cores 4-7 are off and Piper crashes.
 
 ## Progress
 

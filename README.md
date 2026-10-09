@@ -27,7 +27,8 @@ A table robot built from a ROBOTIS OpenMANIPULATOR-X arm and an NVIDIA Jetson Or
 | Voice commands ("wave", "bow", ...) | 🚧 written, not tested yet |
 | Local LLM (Ollama) | 🚧 installing |
 | USB speaker | ✅ working |
-| Voice replies (text to speech), picking | ⏳ planned |
+| Text to speech (Piper) | ✅ working |
+| Robot talks while it greets, voice conversation with the LLM, picking | ⏳ planned |
 
 ## What you need
 
@@ -275,6 +276,40 @@ sudo alsactl store
 
 ```bash
 speaker-test -D plughw:CARD=Device,DEV=0 -c 2 -t wav -l 1
+```
+
+
+### Step 12. Install Piper (text to speech)
+
+Piper turns text into a spoken voice, running entirely on the Jetson. First, put the Jetson in its full-power mode (MAXN): in the lower modes some CPU cores are switched off, and Piper's voice engine (onnxruntime) crashes trying to use them. Check which cores are on:
+
+```bash
+cat /sys/devices/system/cpu/online
+```
+
+If it shows `0-3` instead of `0-7`, switch to mode 0 and say `yes` to the reboot (note the old mode from `sudo nvpmodel -q` if you want to switch back later):
+
+```bash
+sudo nvpmodel -m 0
+```
+
+Install Piper, with an onnxruntime version that doesn't have the Jetson Orin "Unknown CPU vendor" bug:
+
+```bash
+pip3 install piper-tts "onnxruntime==1.20.1" "numpy<2"
+```
+
+Download an English voice (about 60 MB):
+
+```bash
+mkdir -p ~/piper_voices && cd ~/piper_voices && python3 -m piper.download_voices en_US-lessac-medium
+```
+
+Test it:
+
+```bash
+python3 -m piper -m ~/piper_voices/en_US-lessac-medium.onnx -f ~/hello.wav -- 'Hello! I am your robot arm. Nice to meet you.'
+aplay -D plughw:CARD=Device,DEV=0 ~/hello.wav
 ```
 
 Setup is done.
