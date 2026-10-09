@@ -25,10 +25,11 @@ A table robot built from a ROBOTIS OpenMANIPULATOR-X arm and an NVIDIA Jetson Or
 | Wave automatically when a person appears (one command) | ✅ working |
 | Microphone (BRIO) + speech to text (Whisper on the GPU) | ✅ working |
 | Voice commands ("wave", "bow", ...) | 🚧 written, not tested yet |
-| Local LLM (Ollama) | 🚧 installing |
 | USB speaker | ✅ working |
 | Text to speech (Piper) | ✅ working |
-| Robot talks while it greets, voice conversation with the LLM, picking | ⏳ planned |
+| Local LLM (Ollama, llama3.2:3b on the GPU) | ✅ working |
+| Talk with the robot (Whisper + LLM + Piper + gestures) | 🚧 written, not tested yet |
+| Robot says hello while it greets, picking | ⏳ planned |
 
 ## What you need
 
@@ -510,6 +511,24 @@ Options:
 
 What it heard is published on `/voice_text`.
 
+### Talk with the robot
+
+Say anything; the robot answers out loud and does a matching gesture. Whisper listens, a local LLM (Ollama, `llama3.2:3b`) decides what to say and which gesture to do, and Piper speaks through the USB speaker. Everything runs on the Jetson.
+
+First test the talking alone, without the arm. Stay quiet for the first second while it measures the room's noise:
+
+```bash
+python3 ~/Documents/Open_manipulator_x/voice/chat.py --test
+```
+
+Then start the arm (or the simulation, `launch/gestures.sh --sim` in another terminal is fine once you quit its menu, or `ros2 launch ... base.launch.py ...`) and run it without `--test`:
+
+```bash
+python3 ~/Documents/Open_manipulator_x/voice/chat.py
+```
+
+It prints `You: ...` and `Robot: ... [gesture]` for each exchange, and remembers the last few. Say "goodbye" or press Ctrl+C to stop. `--wake robot` makes it answer only sentences that contain "robot" (so it doesn't reply to everyone talking nearby).
+
 ### Check the joint angles (any terminal)
 
 ```bash
@@ -645,6 +664,7 @@ perception/
   detect.py            live object detection from the camera (YOLO / YOLO-World)
 voice/
   listen.py            voice commands: say "wave", "bow", ... and the arm does it
+  chat.py              talk with the robot: it answers out loud (local LLM + Piper) and gestures
 launch/
   greeter.launch.py    starts the whole greeter robot with one command
   gestures.sh          starts the arm (real or --sim) and the controls (keys, or --gui) together
