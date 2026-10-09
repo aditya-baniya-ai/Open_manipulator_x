@@ -183,9 +183,9 @@ The voice file isn't there (for example the download failed). Check `ls -la ~/pi
 **Cause:** full-power mode (MAXN, which Piper needs for all 8 CPU cores) has no power limit, and running everything at once (YOLO on every camera frame, the LLM, Whisper, RViz, the arm) can go over it.
 
 **Fixes:**
-- `perception/detect.py` now checks 5 camera frames a second instead of every frame (`--fps 10` for more), and `launch/robo.sh` runs the camera at 15 fps. Run `git pull` to get this.
 - Use the 25W mode instead of MAXN: it keeps all 8 CPU cores on (which Piper needs) but has a power budget. On the Orin NX 16GB it's mode 3: `sudo nvpmodel -m 3` (it asks to reboot). To list the modes: `grep -E "POWER_MODEL|CORE_4|CORE_7" /etc/nvpmodel.conf`; a mode where `CORE_4` and `CORE_7` are `1` keeps all cores on.
 - Use the power adapter that came with the Jetson kit; a weaker one makes this much more likely.
+- If it still happens, make YOLO lighter: `perception/detect.py --fps 5` checks 5 camera frames a second instead of every frame (still plenty to notice someone walking in).
 
 ## A servo ignores a target near 0° or 360°
 
