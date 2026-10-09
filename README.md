@@ -28,7 +28,7 @@ A table robot built from a ROBOTIS OpenMANIPULATOR-X arm and an NVIDIA Jetson Or
 | USB speaker | ✅ working |
 | Text to speech (Piper) | ✅ working |
 | Local LLM (Ollama, llama3.2:3b on the GPU) | ✅ working |
-| Talk with the robot (Whisper + LLM + Piper + gestures) | 🚧 talking works (--test); with the arm not tested yet |
+| Talk with Robo (Whisper + LLM + Piper + gestures) | 🚧 talking works (--test); with the arm not tested yet |
 | Robot says hello while it greets, picking | ⏳ planned |
 
 ## What you need
@@ -511,11 +511,13 @@ Options:
 
 What it heard is published on `/voice_text`.
 
-### Talk with the robot
+### Talk with Robo
 
-Say anything; the robot answers out loud and does a matching gesture. Whisper listens, a local LLM (Ollama, `llama3.2:3b`) decides what to say and which gesture to do, and Piper speaks through the USB speaker. Everything runs on the Jetson.
+Robo is the robot's voice personality: say anything and it answers out loud with a matching gesture. Whisper listens, a local LLM (Ollama, `llama3.2:3b`) decides what to say and which gesture to do, and Piper speaks through the USB speaker. Everything runs on the Jetson.
 
-First test the talking alone, without the arm. Stay quiet for the first second while it measures the room's noise:
+Robo only talks about **robotics, simulation, itself, Texas State University and the Ingram Hall Makerspace**, and politely declines anything else. Its facts about itself, TXST and the Makerspace come from [`voice/robo_knowledge.md`](voice/robo_knowledge.md), and it's told never to make up details that aren't there. To correct or add facts (new equipment, events, staff contacts), edit that file and restart.
+
+First test the talking alone, without the arm. Stay quiet for the first second while it measures the room's noise. (The first run downloads the Whisper `small` model, about 460 MB.)
 
 ```bash
 python3 ~/Documents/Open_manipulator_x/voice/chat.py --test
@@ -527,7 +529,13 @@ Then start the arm on its own in another terminal: the real arm with `ros2 launc
 python3 ~/Documents/Open_manipulator_x/voice/chat.py
 ```
 
-It prints `You: ...` and `Robot: ... [gesture]` for each exchange, and remembers the last few. Say "goodbye" or press Ctrl+C to stop. `--wake robot` makes it answer only sentences that contain "robot" (so it doesn't reply to everyone talking nearby).
+It prints `You: ...` and `Robo: ... [gesture]` for each exchange, and remembers the last few. Pause briefly after each sentence. Say "goodbye" or press Ctrl+C to stop.
+
+| Option | What it does |
+|---|---|
+| `--wake robo` | only answer sentences that contain "Robo" (so it doesn't reply to everyone talking nearby) |
+| `--whisper base` | faster but less accurate hearing (default `small`) |
+| `--model llama3.1:8b` | a bigger, smarter LLM (download it first with `ollama pull llama3.1:8b`); slower answers |
 
 ### Check the joint angles (any terminal)
 
@@ -664,7 +672,8 @@ perception/
   detect.py            live object detection from the camera (YOLO / YOLO-World)
 voice/
   listen.py            voice commands: say "wave", "bow", ... and the arm does it
-  chat.py              talk with the robot: it answers out loud (local LLM + Piper) and gestures
+  chat.py              talk with Robo: it answers out loud (local LLM + Piper) and gestures
+  robo_knowledge.md    Robo's facts about itself, Texas State and the Ingram Hall Makerspace
 launch/
   greeter.launch.py    starts the whole greeter robot with one command
   gestures.sh          starts the arm (real or --sim) and the controls (keys, or --gui) together
