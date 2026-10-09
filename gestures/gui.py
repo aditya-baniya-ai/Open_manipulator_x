@@ -33,6 +33,7 @@ from pathlib import Path
 from tkinter import messagebox, ttk
 
 import rclpy
+from control_msgs.action import FollowJointTrajectory, GripperCommand
 from sensor_msgs.msg import CompressedImage
 from std_msgs.msg import Bool
 
@@ -43,9 +44,9 @@ except ImportError:
     cv2 = None
 
 from gestures import (
-    BUILT_IN, GESTURES, GRIPPER, JOINTS, Gesturer, catch_up, connect, delete_saved, jog,
-    load_saved, move_gripper, name_problem, record_pose, run_gesture, save_recording,
-    saved_key,
+    BUILT_IN, GESTURES, GRIPPER, GRIPPER_TIME, JOINTS, Gesturer, catch_up, connect,
+    delete_saved, jog, load_saved, move_gripper, name_problem, plan_gesture, record_pose,
+    save_recording, saved_key,
 )
 from greet import GreetDecider
 
@@ -129,6 +130,9 @@ class App:
 
         self.jobs = queue.Queue()      # work for the window's thread (from voice threads)
         self.moving = False            # a gesture is playing
+        self.steps = []                # the rest of the gesture being played
+        self.step = None               # the step being carried out right now
+        self.when_done = []            # what to call when the gesture finishes
         self.voice_busy = False        # a conversation (once or live) is running
         self.loading = False           # voice models are loading
         self.stop_voice = threading.Event()
@@ -227,7 +231,7 @@ class App:
         for i, name in enumerate(JOINT_NAMES):
             text(inside, name, bold=True, width=9, anchor="w").grid(row=i, column=0, pady=3)
             for col, (sign, direction) in enumerate([("-", -1), ("+", 1)], start=1):
-                button(inside, sign, lambda j=i, d=direction: jog(self.node, j, d),
+                button(inside, sign, lambda j=i, d=direction: self.nudge(j, d),
                        width=3, repeat=True).grid(row=i, column=col, padx=3, pady=3)
             angle = text(inside, "", width=6, anchor="e")
             angle.grid(row=i, column=3, padx=(10, 0))
@@ -304,6 +308,7 @@ class App:
     def spin(self):
         # Handle every waiting ROS message, and any work sent from the voice thread
         catch_up(self.node)
+        self.advance_gesture()
         while not self.jobs.empty():
             self.jobs.get_nowait()()
         for label, joint in zip(self.angles, JOINTS):
@@ -348,13 +353,72 @@ class App:
                    lambda m=moves, n=name: self.play(n, m), kind=kind, width=13).grid(
                 row=i // 2, column=i % 2, padx=4, pady=4, sticky="w")
 
-    def play(self, name, moves):
-        # The window waits while the arm moves, so gestures can't overlap
+    def play(self, name, moves, when_done=None):
+        """Start a gesture. It plays step by step while the window keeps running (camera,
+        buttons), so the window never freezes. Gestures can't overlap: while one plays,
+        another is refused. when_done() is called once it has finished (or was refused)."""
+        if self.moving:
+            self.say("Wait for the current move to finish", error=True)
+            if when_done:
+                when_done()
+            return
         self.moving = True
         self.say(f"{name.capitalize()} ...")
-        run_gesture(self.node, moves)
-        self.say("Ready")
-        self.moving = False
+        self.steps = plan_gesture(self.node, moves)
+        self.when_done = [when_done] if when_done else []
+        self.next_step()
+
+    def next_step(self):
+        """Send the next step of the gesture to the arm (or the gripper)."""
+        if not self.steps:
+            self.finish_gesture()
+            return
+        kind, value = self.steps.pop(0)
+        if kind == "arm":
+            goal = FollowJointTrajectory.Goal()
+            goal.trajectory.joint_names = JOINTS
+            goal.trajectory.points = value
+            self.step = {"kind": "arm", "sent": self.node.client.send_goal_async(goal),
+                         "result": None}
+        else:  # gripper: send it, then give it a moment (it stops early when holding something)
+            if self.node.gripper.server_is_ready():
+                goal = GripperCommand.Goal()
+                goal.command.position = value
+                goal.command.max_effort = 100.0
+                self.node.gripper.send_goal_async(goal)
+            self.step = {"kind": "wait", "until": time.monotonic() + GRIPPER_TIME}
+
+    def advance_gesture(self):
+        """Called every 50 ms: move on to the next step once the current one is done."""
+        step = self.step
+        if not self.moving or step is None:
+            return
+        if step["kind"] == "wait":
+            if time.monotonic() >= step["until"]:
+                self.next_step()
+        elif step["result"] is None:
+            if step["sent"].done():
+                handle = step["sent"].result()
+                if handle is None or not handle.accepted:
+                    self.finish_gesture("The arm controller rejected the move")
+                else:
+                    step["result"] = handle.get_result_async()
+        elif step["result"].done():
+            self.next_step()
+
+    def finish_gesture(self, error=None):
+        self.moving, self.step, self.steps = False, None, []
+        self.say(error or "Ready", error=bool(error))
+        callbacks, self.when_done = self.when_done, []
+        for callback in callbacks:
+            callback()
+
+    def nudge(self, joint, direction):
+        """A joint button: move one joint a little (not while a gesture is playing)."""
+        if self.moving:
+            self.say("Wait for the current move to finish", error=True)
+            return
+        jog(self.node, joint, direction)
 
     def gripper(self, name, position):
         self.say(f"Gripper {name}")
@@ -648,9 +712,10 @@ class App:
 
         def move():
             try:
-                self.play(name, moves)
-            finally:
+                self.play(name, moves, when_done=done.set)
+            except Exception:
                 done.set()  # never leave the voice thread waiting
+                raise
 
         self.post(move)
         return done

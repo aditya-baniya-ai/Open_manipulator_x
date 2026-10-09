@@ -371,19 +371,32 @@ def move_arm(node, points):
     return True
 
 
-def run_gesture(node, moves):
+def plan_gesture(node, moves):
+    """The steps of a gesture, in order: ("arm", trajectory points) and ("gripper",
+    position). The base turns are relative to where it faces now."""
     catch_up(node)
     node.home_base = base = node.base
     node.target = None  # number keys start again from wherever the gesture ends
 
+    steps = []
     segments = split_at_gripper(moves)
     for i, (part, grip) in enumerate(segments):
         points = build_trajectory(base, part, start_home=(i == 0),
                                   end_home=(i == len(segments) - 1))
-        if points and not move_arm(node, points):
-            return
+        if points:
+            steps.append(("arm", points))
         if grip is not None:
-            move_gripper(node, GRIPPER_POSITION[grip], wait=True)
+            steps.append(("gripper", GRIPPER_POSITION[grip]))
+    return steps
+
+
+def run_gesture(node, moves):
+    """Play a gesture and wait until it's done."""
+    for kind, value in plan_gesture(node, moves):
+        if kind == "arm" and not move_arm(node, value):
+            return
+        if kind == "gripper":
+            move_gripper(node, value, wait=True)
 
 
 def read_key():
