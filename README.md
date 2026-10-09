@@ -336,14 +336,16 @@ To use the simulated arm instead (RViz opens):
 
 Other options: `--rviz` (real arm, also shown in RViz), `--no-camera` (no camera or detection), and the detection speed options in [Faster detection](#faster-detection-running-everything-together).
 
-The control panel has everything in one window, in three columns:
+The control panel is one window in Texas State maroon and gold, with two tabs:
+
+**Robo tab** (everyday use), in three columns:
 
 | Left: the arm | Middle: the camera | Right: talking with Robo |
 |---|---|---|
-| **Gestures** (including your saved moves) | **Live video** with YOLO's boxes. If no video arrives (camera unplugged or not working), it says **"Camera not connected"**, and the video comes back by itself once the camera works again. | **Talk once** listens for one question and answers it, then stops. **Live** keeps listening and answering until you turn it off (or say "goodbye"). **Stop talking** cuts Robo off. |
-| **Move joints** (hold `-` / `+`) with live angles | **Camera greeting**: when someone new appears, Robo waves and says hello, on its own, without clicking anything (untick to turn it off). It's paused during Talk once and Live (detection pauses too, so the LLM gets the whole GPU and answers faster), so it doesn't greet everyone walking past while you're talking. | **Speaker volume** `-` / `+` in 5% steps. |
-| **Gripper** open / close | Whether someone is in view right now. | A **transcript** of the conversation, with a timing line under each answer. |
-| **Record your own move** | | |
+| **Gestures**: built-in ones and the moves you've built, by name. **Gripper** open / close. | **Live video** with YOLO's boxes. If no video arrives (camera unplugged or not working), it says **"Camera not connected"**, and the video comes back by itself once the camera works again. | **Talk once** listens for one question and answers it, then stops. **Live** keeps listening and answering until you turn it off (or say "goodbye"). **Stop talking** cuts Robo off. |
+| | **Camera greeting**: when someone new appears, Robo waves and says hello, on its own, without clicking anything (untick to turn it off). It's paused while you're talking with Robo or building a move. | **Speaker volume** `-` / `+` in 5% steps, and a **transcript** with a timing line under each answer. |
+
+**Build your own move tab**, a step-by-step builder (see [Make your own gesture](#make-your-own-gesture)). Camera greetings are paused while this tab is open, so a greeting wave never moves the arm away from the pose you're building.
 
 Robo **streams** its answers: it starts speaking as soon as the first sentence is written, while the LLM is still writing the rest, and the gesture starts with the first sentence. Under each answer, a grey line shows how long it took, from when you stopped talking: `(heard in 0.7 s · first words after 1.6 s · full answer written after 6.2 s)`.
 
@@ -402,7 +404,7 @@ Hold a number key to keep a joint moving. Moves you've saved yourself also show 
 
 ### Option A2: The same controls as buttons in a window
 
-Everything above (gestures, joints, gripper, recording) as buttons, so you don't need the keyboard. The first time, install Tkinter (Python's window toolkit):
+Everything above (gestures, joints, gripper, building your own moves) as buttons in Robo's control panel, so you don't need the keyboard. The first time, install Tkinter (Python's window toolkit):
 
 ```bash
 sudo apt install -y python3-tk
@@ -683,35 +685,26 @@ ros2 launch open_manipulator_x_bringup base.launch.py use_sim:=false use_fake_ha
 
 ### Make your own gesture
 
-Pose the arm, save each pose, then replay them. Do this in the simulation first. Everything happens in one terminal:
+Pose the arm, save each pose, then save the whole move with a **name**. Try it in the simulation first.
 
-1. Start the simulated arm and the gesture menu:
+1. Start everything (or just the arm and the panel with `launch/gestures.sh --sim --gui`):
    ```bash
-   ~/Documents/Open_manipulator_x/launch/gestures.sh --sim
+   ~/Documents/Open_manipulator_x/launch/robo.sh --sim
    ```
-2. Press `h` to go home.
-3. Move the arm with the number keys (`1`–`8`), then press `p` to add that pose. Repeat for each pose in your move.
-4. Press `k` to keep (save) the move. It asks two things; type each and press Enter:
-   ```
-   Name for this move: hello dance
-   Key to play it (one letter): m
-   Saved 'hello dance'. Press m to play it.
-   ```
-5. Press your key, and watch it in RViz. When it looks right, press `q`, start the real arm with `~/Documents/Open_manipulator_x/launch/gestures.sh`, and press your key.
+2. Open the **Build your own move** tab. Camera greetings pause while it's open.
+3. **Step 1 · Move the arm:** hold the `-` / `+` buttons for each joint (live angles shown). **Go home** brings it back to the start.
+4. **Step 2 · Gripper:** open or close it if you want.
+5. **Step 3 · Add poses:** set the seconds to reach this pose (default 1.0), then click **Add pose**. Repeat for every pose. The list shows each pose's angles, gripper and time; select one and click **Delete selected pose** to remove it.
+6. **Step 4 · Test and save:** **Test the move** plays it without saving. Then type a **name** (like `hello dance`) and click **Save move**. Using the name of a move you already saved asks before replacing it; built-in names like `wave` aren't allowed.
+7. Your move is now a button in **Gestures** on the Robo tab, and you can say its name to Robo. **Your saved moves** (on the right of the builder) lets you **Play**, **Edit** (loads its poses into the builder; save with the same name to replace it) or **Delete** each one.
 
-**Recording on the real arm, watching it in RViz too:** start with `~/Documents/Open_manipulator_x/launch/gestures.sh --rviz --gui` (12 V on, space around the arm clear). The real arm moves and RViz shows it live; record the same way. Keep poses away from the table and the arm's own base, and remember each pose takes 1 second to reach, so poses far apart make fast swings.
+**Recording on the real arm, watching it in RViz too:** start with `~/Documents/Open_manipulator_x/launch/robo.sh --rviz` (12 V on, space around the arm clear). Keep poses away from the table and the arm's own base, and give poses that are far apart more seconds, so the arm doesn't swing fast.
 
-Prefer buttons? Start with `gestures.sh --sim --gui` instead: move the joints with `-` / `+`, click **Add pose** for each pose, then type a name and a letter and click **Save move**. Your move appears as a new button.
-
-| Key | While recording |
-|---|---|
-| `p` | add the current pose |
-| `k` | keep (save) the move, with a name and a key |
-| `x` | throw away the poses so far and start over |
+**With the keyboard instead** (`launch/gestures.sh --sim`): press `h` to go home, move with the number keys (`1`–`8`), `p` to add a pose, `x` to start over, and `k` to save: it asks for a name and picks a free key to play it with.
 
 **The gripper:** each pose also remembers whether the gripper was open or closed. Click **Open** / **Close** (or press `o` / `c`) *before* **Add pose**. When the move plays, the arm reaches that pose, then the gripper opens or closes (only when it changes), then the arm carries on.
 
-**Changing a saved move:** record it again and save it with the **same letter** to replace it. For small changes, edit `gestures/my_gestures.json`:
+**Changing a saved move:** use **Edit** in the builder, or record it again and save it with the **same name**. For small changes you can also edit `gestures/my_gestures.json` (each move is stored under a letter, the keyboard menu's key for it):
 
 ```bash
 gedit ~/Documents/Open_manipulator_x/gestures/my_gestures.json

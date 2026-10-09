@@ -1,7 +1,12 @@
 """
-Robo's control panel: buttons for gestures, moving each joint, the gripper and
-recording your own moves; the camera view with YOLO's boxes; greeting people the
-camera sees; and talking with Robo (once, or live).
+Robo's control panel, in two tabs:
+
+  Robo                  gestures and the gripper, the camera view with YOLO's boxes and
+                        the camera greeting, and talking with Robo (once, or live)
+  Build your own move   a step-by-step builder: pose the arm, add poses, test the move,
+                        save it with a name, and play, edit or delete saved moves.
+                        Camera greetings pause while this tab is open, so the arm stays
+                        where you put it.
 
 Run it while the arm (or the simulation) is launched (see README.md):
     python3 gui.py
@@ -25,6 +30,7 @@ import threading
 import time
 import tkinter as tk
 from pathlib import Path
+from tkinter import messagebox, ttk
 
 import rclpy
 from sensor_msgs.msg import CompressedImage
@@ -37,8 +43,9 @@ except ImportError:
     cv2 = None
 
 from gestures import (
-    GESTURES, GRIPPER, JOINTS, Gesturer, catch_up, connect, jog, key_problem, load_saved,
-    move_gripper, record_pose, run_gesture, save_recording,
+    BUILT_IN, GESTURES, GRIPPER, JOINTS, Gesturer, catch_up, connect, delete_saved, jog,
+    load_saved, move_gripper, name_problem, record_pose, run_gesture, save_recording,
+    saved_key,
 )
 from greet import GreetDecider
 
@@ -46,20 +53,78 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "voice"))
 from robo_voice import GREETING, RoboVoice, choose_gesture, is_goodbye  # noqa: E402
 
 JOINT_NAMES = ["Base", "Shoulder", "Elbow", "Wrist"]
-FONT = ("Helvetica", 14)
-BIG = ("Helvetica", 14, "bold")
-SMALL = ("Helvetica", 12)
 VIDEO_SIZE = (480, 360)  # the camera view, in pixels
 NO_VIDEO_AFTER = 2.0     # seconds without video before saying "Camera not connected"
 CAMERA_START_TIME = 20.0 # at startup, wait this long for detection to load first
-GREEN, RED, GREY = "#1a7f37", "#cf222e", "#57606a"
-ONCE_TIMEOUT = 10  # seconds "Talk once" waits for you to start speaking
+ONCE_TIMEOUT = 10        # seconds "Talk once" waits for you to start speaking
+
+# ---------- Look: Texas State maroon and gold ----------
+MAROON, MAROON_DARK = "#501214", "#3a0d0f"
+GOLD, GOLD_LIGHT = "#8D734A", "#E9DCC0"
+PAGE, CARD, LINE = "#F4F1EC", "#FFFFFF", "#E3DDD3"
+TEXT, MUTED = "#1F2328", "#6E6A64"
+GREEN, RED, BLUE = "#1a7f37", "#cf222e", "#0969da"
+FAMILY = "DejaVu Sans"   # installed on Ubuntu; other systems fall back to their default
+FONT = (FAMILY, 12)
+BOLD = (FAMILY, 12, "bold")
+SMALL = (FAMILY, 10)
+TITLE = (FAMILY, 14, "bold")
+BUTTONS = {  # kind: (background, text, background when the mouse is over it)
+    "primary": (MAROON, "white", MAROON_DARK),
+    "gold": (GOLD, "white", "#76603c"),
+    "light": (GOLD_LIGHT, TEXT, "#dccaa2"),
+    "danger": ("#f6dcdc", RED, "#efc4c4"),
+}
+
+
+def button(parent, text, command, kind="light", width=None, repeat=False):
+    """A flat, coloured button that darkens when the mouse is over it."""
+    bg, fg, hover = BUTTONS[kind]
+    b = tk.Button(parent, text=text, command=command, font=BOLD, bg=bg, fg=fg,
+                  activebackground=hover, activeforeground=fg, relief="flat", bd=0,
+                  highlightthickness=0, padx=14, pady=7, cursor="hand2")
+    if width:
+        b.config(width=width)
+    if repeat:  # hold to keep repeating
+        b.config(repeatdelay=300, repeatinterval=100)
+    b.bind("<Enter>", lambda e: b.config(bg=hover) if str(b["state"]) != "disabled" else None)
+    b.bind("<Leave>", lambda e: b.config(bg=bg))
+    return b
+
+
+def card(parent, title, help_text=None):
+    """A white box with a title and an optional line of help; returns its inside."""
+    outer = tk.Frame(parent, bg=CARD, highlightthickness=1, highlightbackground=LINE)
+    outer.pack(fill="x", padx=8, pady=8)
+    tk.Label(outer, text=title, font=TITLE, bg=CARD, fg=MAROON).pack(
+        anchor="w", padx=14, pady=(12, 0))
+    if help_text:
+        tk.Label(outer, text=help_text, font=SMALL, bg=CARD, fg=MUTED, justify="left",
+                 wraplength=440).pack(anchor="w", padx=14, pady=(2, 0))
+    inside = tk.Frame(outer, bg=CARD)
+    inside.pack(fill="both", expand=True, padx=14, pady=(8, 14))
+    return inside
+
+
+def text(parent, words, muted=False, bold=False, **options):
+    return tk.Label(parent, text=words, bg=CARD, fg=MUTED if muted else TEXT,
+                    font=SMALL if muted else (BOLD if bold else FONT), **options)
+
+
+def describe_pose(number, pose):
+    """One line for the list of poses, e.g. 1.  base +19°  shoulder +14° ... · 1.0 s"""
+    turn, j2, j3, j4, seconds, *grip = pose
+    angles = "  ".join(f"{name.lower()} {math.degrees(v):+.0f}°"
+                       for name, v in zip(JOINT_NAMES, (turn, j2, j3, j4)))
+    gripper = f" · gripper {grip[0]}" if grip else ""
+    return f"{number:>2}.  {angles}{gripper} · {seconds:.1f} s"
 
 
 class App:
     def __init__(self, root, node, robo):
         self.root, self.node, self.robo = root, node, robo
-        root.title("Robo")
+        root.title("Robo · Ingram Hall Makerspace")
+        root.configure(bg=PAGE)
         root.resizable(False, False)
 
         self.jobs = queue.Queue()      # work for the window's thread (from voice threads)
@@ -75,24 +140,26 @@ class App:
         self.decider = GreetDecider()
         self.greet_on = tk.BooleanVar(value=True)
         node.create_subscription(Bool, "/person_detected", self.on_person, 10)
-        # Tell detect.py when Robo is busy talking, so it pauses and frees the GPU
+        # Tell detect.py when Robo is busy talking, so it frees more of the GPU
         self.busy_pub = node.create_publisher(Bool, "/robo_busy", 10)
         self.busy_sent = (None, 0.0)  # what we last published, and when
 
-        self.status = tk.Label(root, text="Ready", font=BIG, fg=GREEN)
-        self.status.pack(pady=(10, 4))
-        columns = tk.Frame(root)
-        columns.pack(padx=6, pady=(0, 4))
-        left, middle, right = tk.Frame(columns), tk.Frame(columns), tk.Frame(columns)
-        left.grid(row=0, column=0, sticky="n")
-        middle.grid(row=0, column=1, sticky="n")
-        right.grid(row=0, column=2, sticky="n")
-
-        self.build_arm_controls(left)
-        self.build_camera(middle)
-        self.build_voice(right)
-
-        tk.Button(root, text="Quit", font=FONT, width=10, command=self.quit).pack(pady=(4, 10))
+        self.build_header()
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("TNotebook", background=PAGE, borderwidth=0, tabmargins=(12, 8, 12, 0))
+        style.configure("TNotebook.Tab", font=BOLD, padding=(22, 10), background=GOLD_LIGHT,
+                        foreground=TEXT, borderwidth=0)
+        style.map("TNotebook.Tab", background=[("selected", CARD)],
+                  foreground=[("selected", MAROON)])
+        self.tabs = ttk.Notebook(root)
+        self.tabs.pack(fill="both", expand=True, padx=8, pady=(0, 10))
+        self.main_tab = tk.Frame(self.tabs, bg=PAGE)
+        self.build_tab = tk.Frame(self.tabs, bg=PAGE)
+        self.tabs.add(self.main_tab, text="  Robo  ")
+        self.tabs.add(self.build_tab, text="  Build your own move  ")
+        self.build_main_tab(self.main_tab)
+        self.build_builder_tab(self.build_tab)
         root.protocol("WM_DELETE_WINDOW", self.quit)
 
         # Get the voice ready right away: speaking first (a few seconds, so greetings can
@@ -100,58 +167,139 @@ class App:
         self.after_load = None  # what to do once it's ready (a click while loading)
         self.with_voice_loaded(lambda: None)
 
-        # Keep ROS messages (joint angles) coming in while the window is open
+        # Keep ROS messages (joint angles, video) coming in while the window is open
         self.spin()
 
-    # ---------- Arm: gestures, joints, gripper, recording ----------
+    # ================= Layout =================
 
-    def build_arm_controls(self, parent):
-        # Gestures (rebuilt whenever a move is saved)
-        self.gesture_box = tk.LabelFrame(parent, text="Gestures", font=FONT, padx=8, pady=8)
-        self.gesture_box.pack(fill="x", padx=4, pady=4)
+    def build_header(self):
+        bar = tk.Frame(self.root, bg=MAROON)
+        bar.pack(fill="x")
+        names = tk.Frame(bar, bg=MAROON)
+        names.pack(side="left", padx=18, pady=10)
+        tk.Label(names, text="Robo", font=(FAMILY, 22, "bold"), bg=MAROON,
+                 fg="white").pack(anchor="w")
+        tk.Label(names, text="OpenMANIPULATOR-X  ·  Ingram Hall Makerspace, Texas State University",
+                 font=SMALL, bg=MAROON, fg=GOLD_LIGHT).pack(anchor="w")
+        right = tk.Frame(bar, bg=MAROON)
+        right.pack(side="right", padx=18)
+        button(right, "Quit", self.quit, kind="light").pack(side="right", padx=(12, 0))
+        self.status = tk.Label(right, text="Ready", font=BOLD, bg=CARD, fg=GREEN,
+                               padx=14, pady=6)
+        self.status.pack(side="right")
+
+    def build_main_tab(self, tab):
+        left, middle, right = (tk.Frame(tab, bg=PAGE) for _ in range(3))
+        left.grid(row=0, column=0, sticky="n", pady=6)
+        middle.grid(row=0, column=1, sticky="n", pady=6)
+        right.grid(row=0, column=2, sticky="n", pady=6)
+
+        inside = card(left, "Gestures", "Click to play. Moves you build appear here too.")
+        self.gesture_buttons = tk.Frame(inside, bg=CARD)
+        self.gesture_buttons.pack(fill="x")
         self.show_gestures()
 
-        # Joints: hold a button to keep moving
-        joints = tk.LabelFrame(parent, text="Move joints (hold to keep moving)",
-                               font=FONT, padx=8, pady=8)
-        joints.pack(fill="x", padx=4, pady=4)
+        inside = card(left, "Gripper")
+        row = tk.Frame(inside, bg=CARD)
+        row.pack(anchor="w")
+        for name, position in GRIPPER.values():
+            button(row, name.capitalize(), lambda p=position, n=name: self.gripper(n, p),
+                   width=8).pack(side="left", padx=(0, 8))
+
+        self.build_camera(middle)
+        self.build_voice(right)
+
+    def build_builder_tab(self, tab):
+        tk.Label(tab, text="Build your own move: pose the arm, add each pose, test it, then "
+                           "save it with a name. Camera greetings are paused while this tab "
+                           "is open, so the arm stays exactly where you put it.",
+                 font=FONT, bg=PAGE, fg=TEXT, wraplength=1300, justify="left").grid(
+            row=0, column=0, columnspan=3, sticky="w", padx=16, pady=(12, 0))
+        left, middle, right = (tk.Frame(tab, bg=PAGE) for _ in range(3))
+        left.grid(row=1, column=0, sticky="n", pady=6)
+        middle.grid(row=1, column=1, sticky="n", pady=6)
+        right.grid(row=1, column=2, sticky="n", pady=6)
+
+        # Step 1: move the arm
+        inside = card(left, "Step 1 · Move the arm",
+                      "Hold - or + to keep a joint moving. Angles update live.")
         self.angles = []  # live angle of each joint, in degrees
         for i, name in enumerate(JOINT_NAMES):
-            tk.Label(joints, text=name, font=FONT, width=9, anchor="w").grid(row=i, column=0)
-            for col, (label, direction) in enumerate([("-", -1), ("+", 1)], start=1):
-                tk.Button(joints, text=label, font=BIG, width=4,
-                          repeatdelay=300, repeatinterval=100,
-                          command=lambda j=i, d=direction: jog(self.node, j, d),
-                          ).grid(row=i, column=col, padx=4, pady=2)
-            angle = tk.Label(joints, text="", font=FONT, width=7, anchor="e")
-            angle.grid(row=i, column=3, padx=(8, 0))
+            text(inside, name, bold=True, width=9, anchor="w").grid(row=i, column=0, pady=3)
+            for col, (sign, direction) in enumerate([("-", -1), ("+", 1)], start=1):
+                button(inside, sign, lambda j=i, d=direction: jog(self.node, j, d),
+                       width=3, repeat=True).grid(row=i, column=col, padx=3, pady=3)
+            angle = text(inside, "", width=6, anchor="e")
+            angle.grid(row=i, column=3, padx=(10, 0))
             self.angles.append(angle)
+        button(inside, "Go home", lambda: self.play("home", GESTURES["h"][1])).grid(
+            row=len(JOINT_NAMES), column=0, columnspan=4, sticky="w", pady=(10, 0))
 
-        # Gripper
-        gripper = tk.LabelFrame(parent, text="Gripper", font=FONT, padx=8, pady=8)
-        gripper.pack(fill="x", padx=4, pady=4)
-        for col, (key, (name, position)) in enumerate(GRIPPER.items()):
-            tk.Button(gripper, text=name.capitalize(), font=FONT, width=10,
-                      command=lambda p=position, n=name: self.gripper(n, p),
-                      ).grid(row=0, column=col, padx=4)
+        # Step 2: gripper
+        inside = card(left, "Step 2 · Gripper",
+                      "Each pose remembers whether the gripper is open or closed.")
+        row = tk.Frame(inside, bg=CARD)
+        row.pack(anchor="w")
+        for name, position in GRIPPER.values():
+            button(row, name.capitalize(), lambda p=position, n=name: self.gripper(n, p),
+                   width=8).pack(side="left", padx=(0, 8))
 
-        # Recording your own move
-        record = tk.LabelFrame(parent, text="Record your own move", font=FONT, padx=8, pady=8)
-        record.pack(fill="x", padx=4, pady=4)
-        tk.Button(record, text="Add pose", font=FONT, width=10,
-                  command=self.add_pose).grid(row=0, column=0, padx=4, pady=2)
-        tk.Button(record, text="Start over", font=FONT, width=10,
-                  command=self.start_over).grid(row=0, column=1, padx=4, pady=2)
-        self.pose_count = tk.Label(record, text="Poses: 0", font=FONT)
-        self.pose_count.grid(row=0, column=2, padx=4)
-        tk.Label(record, text="Name", font=FONT).grid(row=1, column=0, sticky="e")
-        self.name_entry = tk.Entry(record, font=FONT, width=16)
-        self.name_entry.grid(row=1, column=1, columnspan=2, sticky="w", pady=2)
-        tk.Label(record, text="Key (letter)", font=FONT).grid(row=2, column=0, sticky="e")
-        self.key_entry = tk.Entry(record, font=FONT, width=4)
-        self.key_entry.grid(row=2, column=1, sticky="w", pady=2)
-        tk.Button(record, text="Save move", font=BIG, width=10,
-                  command=self.save).grid(row=2, column=2, padx=4, pady=2)
+        # Step 3: add poses
+        inside = card(middle, "Step 3 · Add poses",
+                      "Add a pose every time the arm is where you want it. The move goes "
+                      "through them in order, starting and ending at home.")
+        row = tk.Frame(inside, bg=CARD)
+        row.pack(fill="x")
+        text(row, "Seconds to reach this pose").pack(side="left")
+        self.seconds = tk.Spinbox(row, from_=0.3, to=5.0, increment=0.1, width=5, font=FONT,
+                                  format="%.1f", relief="solid", bd=1)
+        self.seconds.delete(0, "end")
+        self.seconds.insert(0, "1.0")
+        self.seconds.pack(side="left", padx=8)
+        button(row, "Add pose", self.add_pose, kind="primary").pack(side="right")
+        self.pose_list = tk.Listbox(inside, font=(FAMILY, 10), width=62, height=12,
+                                    relief="solid", bd=1, highlightthickness=0,
+                                    selectbackground=GOLD_LIGHT, selectforeground=TEXT,
+                                    activestyle="none")
+        self.pose_list.pack(fill="x", pady=(10, 6))
+        row = tk.Frame(inside, bg=CARD)
+        row.pack(fill="x")
+        button(row, "Delete selected pose", self.delete_pose, kind="danger").pack(side="left")
+        button(row, "Clear all", self.start_over, kind="danger").pack(side="left", padx=8)
+
+        # Step 4: test and save
+        inside = card(middle, "Step 4 · Test and save",
+                      "Test plays your poses without saving. Then give the move a name: "
+                      "you'll play it from Gestures, or by saying its name to Robo.")
+        button(inside, "Test the move", self.test_move, kind="gold").pack(anchor="w")
+        row = tk.Frame(inside, bg=CARD)
+        row.pack(fill="x", pady=(12, 0))
+        text(row, "Name").pack(side="left")
+        self.name_entry = tk.Entry(row, font=FONT, width=26, relief="solid", bd=1)
+        self.name_entry.pack(side="left", padx=8, ipady=4)
+        button(row, "Save move", self.save, kind="primary").pack(side="left")
+
+        # Saved moves
+        inside = card(right, "Your saved moves",
+                      "Select a move, then play it, load it into the builder to change it "
+                      "(save with the same name to replace it), or delete it.")
+        self.saved_list = tk.Listbox(inside, font=FONT, width=30, height=14, relief="solid",
+                                     bd=1, highlightthickness=0, selectbackground=GOLD_LIGHT,
+                                     selectforeground=TEXT, activestyle="none")
+        self.saved_list.pack(fill="x", pady=(0, 8))
+        row = tk.Frame(inside, bg=CARD)
+        row.pack(fill="x")
+        button(row, "Play", self.play_saved, kind="gold").pack(side="left")
+        button(row, "Edit", self.edit_saved).pack(side="left", padx=8)
+        button(row, "Delete", self.delete_saved_move, kind="danger").pack(side="left")
+        self.show_poses()
+        self.show_saved()
+
+    def building(self):
+        """True while the Build your own move tab is open."""
+        return self.tabs.select() == str(self.build_tab)
+
+    # ================= Main loop =================
 
     def spin(self):
         # Handle every waiting ROS message, and any work sent from the voice thread
@@ -168,7 +316,7 @@ class App:
 
     def publish_busy(self):
         """Busy = a conversation is running or Robo is talking. Sent when it changes, and
-        repeated every second while busy (detect.py resumes if the repeats stop)."""
+        repeated every second while busy (detect.py goes back to normal if repeats stop)."""
         busy = self.voice_busy or self.robo.talking()
         now = time.monotonic()
         last, sent_at = self.busy_sent
@@ -176,17 +324,29 @@ class App:
             self.busy_pub.publish(Bool(data=busy))
             self.busy_sent = (busy, now)
 
-    def say(self, text, error=False):
-        self.status.config(text=text, fg=RED if error else GREEN)
+    def say(self, words, error=False):
+        self.status.config(text=words, fg=RED if error else GREEN)
         self.root.update_idletasks()
 
+    def post(self, job):
+        """Run job on the window's thread (Tkinter and the arm must only be used there)."""
+        self.jobs.put(job)
+
+    # ================= Arm =================
+
     def show_gestures(self):
-        for widget in self.gesture_box.winfo_children():
+        """The gesture buttons on the Robo tab: built-in ones, then saved moves."""
+        for widget in self.gesture_buttons.winfo_children():
             widget.destroy()
-        for i, (key, (name, moves)) in enumerate(GESTURES.items()):
-            tk.Button(self.gesture_box, text=f"{name.capitalize()} ({key})", font=FONT, width=14,
-                      command=lambda m=moves, n=name: self.play(n, m),
-                      ).grid(row=i // 3, column=i % 3, padx=4, pady=2)
+        keys = [k for k in GESTURES if k in BUILT_IN] + \
+               [k for k in GESTURES if k not in BUILT_IN]
+        for i, key in enumerate(keys):
+            name, moves = GESTURES[key]
+            kind = "light" if key in BUILT_IN else "gold"
+            label = name.capitalize() if key in BUILT_IN else name  # saved: as typed
+            button(self.gesture_buttons, label,
+                   lambda m=moves, n=name: self.play(n, m), kind=kind, width=13).grid(
+                row=i // 2, column=i % 2, padx=4, pady=4, sticky="w")
 
     def play(self, name, moves):
         # The window waits while the arm moves, so gestures can't overlap
@@ -200,77 +360,155 @@ class App:
         self.say(f"Gripper {name}")
         move_gripper(self.node, position)
 
+    # ================= Build your own move =================
+
+    def show_poses(self):
+        self.pose_list.delete(0, "end")
+        for i, pose in enumerate(self.node.recording, start=1):
+            self.pose_list.insert("end", describe_pose(i, pose))
+        if not self.node.recording:
+            self.pose_list.insert("end", "  No poses yet. Move the arm, then click Add pose.")
+
     def add_pose(self):
-        record_pose(self.node)
-        self.pose_count.config(text=f"Poses: {len(self.node.recording)}")
+        try:
+            seconds = min(5.0, max(0.3, float(self.seconds.get())))
+        except ValueError:
+            seconds = 1.0
+        record_pose(self.node, seconds)
+        self.show_poses()
+        self.pose_list.see("end")
         self.say(f"Pose {len(self.node.recording)} added")
 
+    def delete_pose(self):
+        chosen = self.pose_list.curselection()
+        if not chosen or not self.node.recording:
+            self.say("Select a pose in the list first", error=True)
+            return
+        del self.node.recording[chosen[0]]
+        self.show_poses()
+        self.say(f"Pose {chosen[0] + 1} deleted")
+
     def start_over(self):
+        if self.node.recording and not messagebox.askyesno(
+                "Clear all poses", "Remove all the poses you've added?"):
+            return
         self.node.recording = []
-        self.pose_count.config(text="Poses: 0")
-        self.say("Recording cleared")
+        self.show_poses()
+        self.say("Poses cleared")
+
+    def test_move(self):
+        if not self.node.recording:
+            self.say("Add some poses first", error=True)
+            return
+        self.play("your move", [tuple(p) for p in self.node.recording])
 
     def save(self):
         if not self.node.recording:
             self.say("Add some poses first", error=True)
             return
-        name = self.name_entry.get().strip() or "my move"
-        key = self.key_entry.get().strip().lower()
-        problem = key_problem(key)
+        name = self.name_entry.get().strip()
+        problem = name_problem(name)
         if problem:
             self.say(problem, error=True)
             return
-        save_recording(self.node, name, key)
-        self.pose_count.config(text="Poses: 0")
-        self.name_entry.delete(0, tk.END)
-        self.key_entry.delete(0, tk.END)
+        if saved_key(name) and not messagebox.askyesno(
+                "Replace move", f"A move called '{name}' already exists. Replace it?"):
+            return
+        save_recording(self.node, name)
+        self.name_entry.delete(0, "end")
+        self.show_poses()
         self.show_gestures()
+        self.show_saved()
         self.say(f"Saved '{name}'")
 
-    # ---------- Talk with Robo ----------
+    def show_saved(self):
+        self.saved_list.delete(0, "end")
+        self.saved_keys = [k for k in GESTURES if k not in BUILT_IN]
+        for key in self.saved_keys:
+            name, moves = GESTURES[key]
+            seconds = sum(m[4] for m in moves)
+            poses = f"{len(moves)} pose" + ("s" if len(moves) != 1 else "")
+            self.saved_list.insert("end", f"  {name}   ({poses}, {seconds:.0f} s)")
+        if not self.saved_keys:
+            self.saved_list.insert("end", "  No saved moves yet.")
+
+    def chosen_saved(self):
+        chosen = self.saved_list.curselection()
+        if not chosen or not self.saved_keys:
+            self.say("Select a saved move first", error=True)
+            return None
+        return self.saved_keys[chosen[0]]
+
+    def play_saved(self):
+        key = self.chosen_saved()
+        if key:
+            self.play(*GESTURES[key])
+
+    def edit_saved(self):
+        key = self.chosen_saved()
+        if not key:
+            return
+        if self.node.recording and not messagebox.askyesno(
+                "Edit move", "This replaces the poses you're building now. Continue?"):
+            return
+        name, moves = GESTURES[key]
+        self.node.recording = [list(m) for m in moves]
+        self.name_entry.delete(0, "end")
+        self.name_entry.insert(0, name)
+        self.show_poses()
+        self.say(f"Editing '{name}': save with the same name to replace it")
+
+    def delete_saved_move(self):
+        key = self.chosen_saved()
+        if not key:
+            return
+        name = GESTURES[key][0]
+        if not messagebox.askyesno("Delete move", f"Delete '{name}'? This can't be undone."):
+            return
+        delete_saved(key)
+        self.show_saved()
+        self.show_gestures()
+        self.say(f"Deleted '{name}'")
+
+    # ================= Talk with Robo =================
 
     def build_voice(self, parent):
-        box = tk.LabelFrame(parent, text="Talk with Robo", font=FONT, padx=8, pady=8)
-        box.pack(fill="x", padx=4, pady=4)
-        buttons = tk.Frame(box)
-        buttons.pack(fill="x")
-        self.once_button = tk.Button(buttons, text="Talk once", font=BIG, width=10,
-                                     command=self.talk_once)
-        self.once_button.grid(row=0, column=0, padx=4, pady=2)
-        self.live_button = tk.Button(buttons, text="Live: OFF", font=BIG, width=10,
-                                     command=self.toggle_live)
-        self.live_button.grid(row=0, column=1, padx=4, pady=2)
-        tk.Button(buttons, text="Stop talking", font=FONT, width=10,
-                  command=self.robo.stop_talking).grid(row=0, column=2, padx=4, pady=2)
-        tk.Label(box, text="Talk once: one question and answer.   "
-                           "Live: keeps listening until you turn it off.",
-                 font=SMALL, fg=GREY).pack(anchor="w", pady=(2, 0))
+        inside = card(parent, "Talk with Robo",
+                      "Talk once: ask one question, Robo answers, then stops listening. "
+                      "Live: keeps listening and answering until you turn it off.")
+        row = tk.Frame(inside, bg=CARD)
+        row.pack(fill="x")
+        self.once_button = button(row, "Talk once", self.talk_once, kind="primary", width=10)
+        self.once_button.pack(side="left")
+        self.live_button = button(row, "Live: OFF", self.toggle_live, kind="gold", width=10)
+        self.live_button.pack(side="left", padx=8)
+        button(row, "Stop talking", self.robo.stop_talking).pack(side="left")
 
-        volume = tk.Frame(box)
-        volume.pack(anchor="w", pady=(6, 0))
-        tk.Label(volume, text="Speaker volume", font=FONT).grid(row=0, column=0, padx=(0, 8))
-        tk.Button(volume, text="-", font=BIG, width=3,
-                  command=lambda: self.change_volume(-5)).grid(row=0, column=1, padx=2)
-        self.volume_label = tk.Label(volume, text="?", font=FONT, width=5)
-        self.volume_label.grid(row=0, column=2)
-        tk.Button(volume, text="+", font=BIG, width=3,
-                  command=lambda: self.change_volume(+5)).grid(row=0, column=3, padx=2)
+        row = tk.Frame(inside, bg=CARD)
+        row.pack(fill="x", pady=(12, 0))
+        text(row, "Speaker volume").pack(side="left")
+        button(row, "-", lambda: self.change_volume(-5), width=2).pack(side="left", padx=(10, 4))
+        self.volume_label = text(row, "?", width=5)
+        self.volume_label.pack(side="left")
+        button(row, "+", lambda: self.change_volume(+5), width=2).pack(side="left", padx=4)
         self.show_volume(self.robo.volume())
-        self.voice_status = tk.Label(box, text="Getting the voice ready ...",
-                                     font=SMALL, fg=GREY, wraplength=480, justify="left")
-        self.voice_status.pack(anchor="w", pady=(4, 4))
 
-        frame = tk.Frame(box)
+        self.voice_status = text(inside, "Getting the voice ready ...", muted=True,
+                                 wraplength=440, justify="left")
+        self.voice_status.pack(anchor="w", pady=(10, 6))
+
+        frame = tk.Frame(inside, bg=CARD)
         frame.pack(fill="both")
-        self.transcript = tk.Text(frame, font=SMALL, width=48, height=14, wrap="word",
-                                  state="disabled")
+        self.transcript = tk.Text(frame, font=SMALL, width=52, height=17, wrap="word",
+                                  state="disabled", relief="solid", bd=1, bg="#FBFAF7",
+                                  padx=8, pady=6, highlightthickness=0)
         scroll = tk.Scrollbar(frame, command=self.transcript.yview)
         self.transcript.config(yscrollcommand=scroll.set)
         self.transcript.pack(side="left", fill="both")
         scroll.pack(side="right", fill="y")
-        self.transcript.tag_config("you", foreground="#0969da")
-        self.transcript.tag_config("robo", foreground=GREEN)
-        self.transcript.tag_config("note", foreground=GREY)
+        self.transcript.tag_config("you", foreground=BLUE, font=(FAMILY, 10, "bold"))
+        self.transcript.tag_config("robo", foreground=MAROON, font=(FAMILY, 10, "bold"))
+        self.transcript.tag_config("note", foreground=MUTED)
 
     def show_volume(self, percent):
         self.volume_label.config(text="?" if percent is None else f"{percent}%")
@@ -282,17 +520,22 @@ class App:
             self.say("Couldn't change the speaker volume (is the USB speaker plugged in?)",
                      error=True)
 
-    def post(self, job):
-        """Run job on the window's thread (Tkinter and the arm must only be used there)."""
-        self.jobs.put(job)
+    def voice_says(self, words, error=False):
+        self.voice_status.config(text=words, fg=RED if error else MUTED)
 
-    def voice_says(self, text, error=False):
-        self.voice_status.config(text=text, fg=RED if error else GREY)
-
-    def add_line(self, who, text):
+    def add_line(self, who, words):
         self.transcript.config(state="normal")
         self.transcript.insert("end", f"{who}: ", "you" if who == "You" else "robo")
-        self.transcript.insert("end", text + ("\n" if who == "Robo" else "\n\n"))
+        self.transcript.insert("end", words + ("\n" if who == "Robo" else "\n\n"))
+        self.transcript.see("end")
+        self.transcript.config(state="disabled")
+
+    def add_note(self, words):
+        """A small grey line in the transcript, like the timing of the last answer."""
+        if not words:
+            return
+        self.transcript.config(state="normal")
+        self.transcript.insert("end", f"({words})\n\n", "note")
         self.transcript.see("end")
         self.transcript.config(state="disabled")
 
@@ -412,15 +655,6 @@ class App:
         self.post(move)
         return done
 
-    def add_note(self, text):
-        """A small grey line in the transcript, like the timing of the last answer."""
-        if not text:
-            return
-        self.transcript.config(state="normal")
-        self.transcript.insert("end", f"({text})\n\n", "note")
-        self.transcript.see("end")
-        self.transcript.config(state="disabled")
-
     def voice_finished(self):
         self.voice_busy = self.live = False
         self.once_button.config(state="normal")
@@ -430,16 +664,15 @@ class App:
                                                        "Stopping")):
             self.voice_says("Voice ready. Click Talk once, or turn Live on.")
 
-    # ---------- Camera greeting ----------
+    # ================= Camera and greeting =================
 
     def build_camera(self, parent):
-        box = tk.LabelFrame(parent, text="Camera", font=FONT, padx=8, pady=8)
-        box.pack(fill="x", padx=4, pady=4)
+        inside = card(parent, "Camera", "Live video with what YOLO sees.")
         # The video from perception/detect.py, with YOLO's boxes
-        frame = tk.Frame(box, width=VIDEO_SIZE[0], height=VIDEO_SIZE[1], bg="black")
+        frame = tk.Frame(inside, width=VIDEO_SIZE[0], height=VIDEO_SIZE[1], bg="#111111")
         frame.pack_propagate(False)  # keep the size while it shows text instead of video
         frame.pack()
-        self.video = tk.Label(frame, bg="black", fg="white", font=BIG,
+        self.video = tk.Label(frame, bg="#111111", fg="white", font=TITLE,
                               text="Starting the camera ...")
         self.video.pack(fill="both", expand=True)
         self.photo = None          # the picture currently shown (Tkinter needs a reference)
@@ -448,13 +681,15 @@ class App:
         self.started_at = time.monotonic()
         self.node.create_subscription(CompressedImage, "/detections/image/compressed",
                                       self.on_video, 1)
+        self.camera_status = text(inside, "Camera: no detections yet", muted=True)
+        self.camera_status.pack(anchor="w", pady=(8, 0))
 
-        tk.Checkbutton(box, text="Wave and say hello when someone new appears",
-                       variable=self.greet_on, font=SMALL).pack(anchor="w", pady=(6, 0))
-        tk.Label(box, text="Works on its own. Paused while you're talking with Robo.",
-                 font=SMALL, fg=GREY).pack(anchor="w")
-        self.camera_status = tk.Label(box, text="Camera: no detections yet", font=SMALL, fg=GREY)
-        self.camera_status.pack(anchor="w", pady=(4, 0))
+        inside = card(parent, "Camera greeting",
+                      "When someone new appears, Robo waves and says hello on its own. "
+                      "Paused while you're talking with Robo or building a move.")
+        tk.Checkbutton(inside, text="Wave and say hello to new people", variable=self.greet_on,
+                       font=FONT, bg=CARD, activebackground=CARD, fg=TEXT,
+                       selectcolor=CARD).pack(anchor="w")
 
     def on_video(self, msg):
         self.video_msg, self.video_at = msg, time.monotonic()
@@ -487,12 +722,14 @@ class App:
 
     def check_greeting(self):
         now = time.monotonic()
-        if self.voice_busy:
-            # Talking with someone: detection is paused and greetings are off. Count it as
-            # a greeting, so the person you were talking to isn't greeted when it ends.
+        if self.voice_busy or self.building():
+            # Talking with someone, or building a move: no greetings. Count it as a
+            # greeting, so whoever is there isn't greeted the moment it ends.
             self.decider.greeted(now)
             if self.camera_seen:
-                self.camera_status.config(text="Camera: paused while talking with Robo")
+                self.camera_status.config(
+                    text="Greeting paused while talking with Robo" if self.voice_busy
+                    else "Greeting paused while you build a move")
             return
         if self.camera_seen:
             in_view = self.last_person is not None and now - self.last_person < 1.0

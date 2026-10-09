@@ -15,7 +15,7 @@ Move each joint a little (hold the key to keep moving):
 
 Record your own move (move the joints between poses):
     p  add the current pose to the move
-    k  keep the move: type a name and a key to play it with
+    k  keep the move: type a name (it gets a free key to play it with)
     x  throw away the poses recorded so far
 
 Saved moves go in my_gestures.json next to this file and load every time.
@@ -167,12 +167,12 @@ def catch_up(node):
         rclpy.spin_once(node, timeout_sec=0.0)
 
 
-def record_pose(node):
-    """Add the current pose to the move being recorded."""
+def record_pose(node, seconds=1.0):
+    """Add the current pose to the move being recorded (seconds: time to reach it)."""
     catch_up(node)
     turn = node.base - node.home_base
     j2, j3, j4 = (node.joints[j] for j in JOINTS[1:])
-    pose = [round(v, 2) for v in (turn, j2, j3, j4)] + [1.0]
+    pose = [round(v, 2) for v in (turn, j2, j3, j4)] + [round(float(seconds), 1)]
     grip = node.joints.get("gripper_left_joint")
     if grip is not None:
         # Remember the gripper too: open if it's past halfway open
@@ -203,39 +203,70 @@ def write_saved(saved):
     SAVED_FILE.write_text("{\n" + ",\n".join(parts) + "\n}\n")
 
 
-def key_problem(key):
-    """Return why a key can't be used for a saved move, or None if it's fine."""
-    if len(key) != 1 or not key.isalpha():
-        return "Please use one letter."
-    if key in BUILT_IN or key in RECORD_KEYS:
-        return f"'{key}' is already used. Try another."
+def saved_key(name):
+    """The key of the saved move with this name (any capitals), or None."""
+    for key, (other, _) in GESTURES.items():
+        if key not in BUILT_IN and other.lower() == name.strip().lower():
+            return key
     return None
 
 
-def save_recording(node, name, key):
-    """Save the recorded poses as a move called name, played with key."""
+def name_problem(name):
+    """Return why a name can't be used for a saved move, or None if it's fine."""
+    name = name.strip()
+    if not name:
+        return "Please type a name for the move."
+    if any(name.lower() == built_in.lower() for built_in, _ in
+           (GESTURES[k] for k in BUILT_IN)):
+        return f"'{name}' is a built-in gesture. Please choose another name."
+    return None
+
+
+def free_key():
+    """A letter for the keyboard menu that no gesture or command uses yet."""
+    for letter in "acdefgijkmortuvyz":
+        if letter not in GESTURES and letter not in RECORD_KEYS:
+            return letter
+    return None
+
+
+def save_recording(node, name):
+    """Save the recorded poses as a move called name (replacing a move with the same
+    name). Returns the key it can be played with in the keyboard menu."""
+    name = name.strip()
+    key = saved_key(name) or free_key() or name.lower()
     GESTURES[key] = (name, [tuple(m) for m in node.recording])
     saved = json.loads(SAVED_FILE.read_text()) if SAVED_FILE.exists() else {}
     saved[key] = {"name": name, "moves": node.recording}
     write_saved(saved)
     node.recording = []
+    return key
+
+
+def delete_saved(key):
+    """Delete a saved move."""
+    GESTURES.pop(key, None)
+    saved = json.loads(SAVED_FILE.read_text()) if SAVED_FILE.exists() else {}
+    saved.pop(key, None)
+    write_saved(saved)
 
 
 def save_move(node):
-    """Ask for a name and a key, then save the recorded poses as a move."""
+    """Ask for a name, then save the recorded poses as a move."""
     if not node.recording:
         print("Nothing recorded yet. Press p to add poses first.")
         return
-    name = input("Name for this move: ").strip() or "my move"
     while True:
-        key = input("Key to play it (one letter): ").strip().lower()
-        problem = key_problem(key)
+        name = input("Name for this move: ").strip()
+        problem = name_problem(name)
         if problem is None:
             break
         print(problem)
-
-    save_recording(node, name, key)
-    print(f"Saved '{name}'. Press {key} to play it.")
+    if saved_key(name) and input(f"'{name}' already exists. Replace it? (y/n) ").lower() != "y":
+        print("Not saved. Press k to try another name.")
+        return
+    key = save_recording(node, name)
+    print(f"Saved '{name}'." + (f" Press {key} to play it." if len(key) == 1 else ""))
 
 
 def move_gripper(node, position, wait=False):
