@@ -39,11 +39,12 @@ import arm  # noqa: E402  (also makes ../gestures importable)
 CALIBRATION = HERE / "camera.json"
 WORLD_MODEL = "yolov8s-worldv2.pt"
 
-# Search pose: the camera high up, looking down at the whole pick-up area (about
-# 60-400 mm in front of the base). Joint angles in degrees: base, shoulder (leaning
-# back), elbow, wrist (bent down). To choose your own: move the arm with the joint keys
-# while "pick.py look" shows the camera, then "arm.py where" prints the angles to put here.
-SEARCH_POSE = (0.0, -53.0, 18.0, 100.0)
+# Search pose: the camera high up (about 220 mm), looking down at the whole pick-up
+# area. Chosen by eye on the real robot. Joint angles in degrees: base, shoulder
+# (leaning back), elbow, wrist (bent down, 1 degree inside its limit). To choose your
+# own: move the arm with the joint keys while "pick.py look" shows the camera, then
+# "arm.py where" prints the angles to put here.
+SEARCH_POSE = (0.0, -59.0, 12.0, 108.0)
 LOOK_HEIGHT = 80.0     # fingertips this high (mm) while looking straight down
 LOOK_SPOT = (180.0, 0.0)          # where the gripper looks first (x, y mm)
 SEARCH_TURNS = [0.0, 0.5, -0.5, 1.0, -1.0]   # base turns (radians) to look around
