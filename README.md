@@ -732,6 +732,42 @@ Each pose is one line: base turn, shoulder, elbow, wrist (radians), seconds to g
 
 Restart the controls to load your changes.
 
+### Move the gripper to a point (Robo's hands)
+
+The first part of Robo's "brain" (picking things up when you ask): instead of joint angles, give a point in **mm** and Robo works out the joint angles itself. The point is the middle of the gripper fingertips:
+
+- **x** forward from the base, **y** to the left, **z** up from the table
+- Pointing **straight down** (how Robo picks things up), it reaches up to about 100 mm high and 80 to 240 mm in front of the base. Further away or higher, the gripper has to tilt.
+- It refuses any point it can't reach safely, and never goes lower than 10 mm above the table.
+
+Check the math first (no arm needed):
+
+```bash
+python3 ~/Documents/Open_manipulator_x/brain/arm.py test
+```
+
+Then start the arm, **in the simulation first** (`~/Documents/Open_manipulator_x/launch/gestures.sh --sim`), and in another terminal:
+
+```bash
+python3 ~/Documents/Open_manipulator_x/brain/arm.py where
+```
+
+```bash
+python3 ~/Documents/Open_manipulator_x/brain/arm.py go 200 0 100
+```
+
+```bash
+python3 ~/Documents/Open_manipulator_x/brain/arm.py go 200 0 40
+```
+
+```bash
+python3 ~/Documents/Open_manipulator_x/brain/arm.py home
+```
+
+`where` says where the gripper is now, `go X Y Z` moves it there pointing down (add `--level` to point it forward), and `home` goes back to the home pose.
+
+On the real arm, try `go 200 0 100` first (well above the table) and measure with a ruler: the fingertips should be about 200 mm in front of the base and 100 mm above the table. If the arm stands on a plate or board, put its thickness in `MOUNT_HEIGHT` at the top of `brain/arm.py`.
+
 ### Get the latest code
 
 ```bash
@@ -775,6 +811,8 @@ gestures/
   greet.py             waves automatically when the camera sees a person
   gui.py               Robo's control panel: gestures, joints, gripper, recording,
                        talking with Robo (once or live) and the camera greeting
+brain/
+  arm.py               Robo's hands: move the gripper to a point in mm (inverse kinematics)
 perception/
   detect.py            live object detection from the camera (YOLO / YOLO-World)
 voice/
