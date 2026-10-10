@@ -764,7 +764,7 @@ python3 ~/Documents/Open_manipulator_x/brain/arm.py go 200 0 40
 python3 ~/Documents/Open_manipulator_x/brain/arm.py home
 ```
 
-`where` says where the gripper is now, `go X Y Z` moves it there pointing down (add `--level` to point it forward), and `home` goes back to the home pose.
+`where` says where the gripper is now (and the joint angles), `go X Y Z` moves it there pointing down (add `--level` to point it forward), and `home` goes back to the home pose.
 
 On the real arm, try `go 200 0 100` first (well above the table) and measure with a ruler: the fingertips should be about 200 mm in front of the base and 100 mm above the table. If the arm stands on a plate or board, put its thickness in `MOUNT_HEIGHT` at the top of `brain/arm.py`.
 

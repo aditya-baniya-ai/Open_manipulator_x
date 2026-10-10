@@ -13,7 +13,7 @@ Check the math (no arm needed, works on any computer):
     python3 arm.py test
 
 With the arm (or the simulation) launched (see README.md):
-    python3 arm.py where                 where the gripper is now
+    python3 arm.py where                 where the gripper is now, and the joint angles
     python3 arm.py go 200 0 100          move the gripper to x=200 y=0 z=100, pointing down
     python3 arm.py go 200 0 100 --level  ... pointing forward instead of down
     python3 arm.py home                  back to the home pose
@@ -292,6 +292,8 @@ def main():
             x, y, z, pitch = where(node)
             print(f"Gripper at {format_point((x, y, z))}, "
                   f"pointing {math.degrees(pitch):.0f}° below level")
+            print("Joints (base, shoulder, elbow, wrist): " + ", ".join(
+                f"{math.degrees(j):.0f}" for j in current_joints(node)) + " degrees")
         elif args.command == "home":
             move_joints_safely(node, [current_joints(node)[0], 0.0, 0.0, 0.0])
         else:
