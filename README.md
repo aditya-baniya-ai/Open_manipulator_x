@@ -799,7 +799,7 @@ python3 ~/Documents/Open_manipulator_x/brain/pick.py look block
 python3 ~/Documents/Open_manipulator_x/brain/pick.py pick "glue stick"
 ```
 
-`look` only looks and says where it sees the object. A window shows the gripper camera, with a yellow cross where an object right under the fingers shows up.
+`look` only looks: it shows the gripper camera live with a box around the object, and says where it sees it. Press `q` in the window to finish. After teaching, a yellow cross shows where an object right under the fingers shows up.
 
 - If it can't find the object, try a lower `--conf 0.05`, or another name ("cube", "toy block", "red block").
 - If the fingers hit the table or close above the object, change `--grab-height` (fingertip height when grabbing, default 15 mm).

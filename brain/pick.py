@@ -14,7 +14,7 @@ That's saved in camera.json next to this file. Teach again if the camera is move
 
 Start the arm and the camera first (see README.md, "Pick things up"), then:
     python3 pick.py teach            follow the steps it prints
-    python3 pick.py look block       only look: shows where it sees the block
+    python3 pick.py look block       only look: live camera with boxes (q to close)
     python3 pick.py pick block       pick the block up
     python3 pick.py pick "glue stick"
 
@@ -50,6 +50,7 @@ MAX_TRIES = 8          # centering moves before giving up
 LONGEST_STEP = 60.0    # mm: the most one centering move goes
 HOLDING = -0.006       # gripper position: closed further than this means it's empty
 SETTLE = 0.4           # seconds to let the arm stop shaking before looking
+WINDOW = "Robo's gripper camera (yellow cross: grab spot, q: close)"
 
 
 # --- Seeing -----------------------------------------------------------------------
@@ -69,15 +70,17 @@ class Eyes:
         os.chdir(Path.home())
         self.model = YOLO(WORLD_MODEL)
         self.name = None
+        self.key = None    # the last key pressed in the window
 
     def on_image(self, msg):
         self.msg = msg
 
-    def picture(self):
-        """A fresh camera picture, taken after the arm has stopped moving."""
+    def picture(self, settle=True):
+        """A fresh camera picture, taken after the arm has stopped moving
+        (settle=False: right away, for live video)."""
         import rclpy
         from detect import to_bgr
-        end = time.monotonic() + SETTLE
+        end = time.monotonic() + (SETTLE if settle else 0.0)
         while time.monotonic() < end:
             rclpy.spin_once(self.node, timeout_sec=0.05)
         self.msg = None
@@ -88,14 +91,14 @@ class Eyes:
             rclpy.spin_once(self.node, timeout_sec=0.05)
         return to_bgr(self.msg)
 
-    def find(self, name, grab_spot=None):
+    def find(self, name, grab_spot=None, settle=True):
         """Look for name in a fresh picture. Returns its centre (x, y) in pixels and how
         sure YOLO is, or None. Shows the picture in a window, if that's on."""
         import cv2
         if name != self.name:
             self.model.set_classes([name])
             self.name = name
-        image = self.picture()
+        image = self.picture(settle)
         result = self.model(image, conf=self.conf, verbose=False)[0]
         found = None
         if len(result.boxes):
@@ -107,8 +110,9 @@ class Eyes:
             if grab_spot:
                 spot = tuple(int(v) for v in grab_spot)
                 cv2.drawMarker(shown, spot, (0, 255, 255), cv2.MARKER_CROSS, 30, 2)
-            cv2.imshow("Robo's gripper camera (yellow cross: grab spot)", shown)
-            cv2.waitKey(1)
+            cv2.imshow(WINDOW, shown)
+            # The window only draws while OpenCV gets time to update it
+            self.key = cv2.waitKey(100 if settle else 1) & 0xFF
         return found
 
 
@@ -240,6 +244,34 @@ def center(node, eyes, name, calibration):
     return None
 
 
+def look(node, eyes, name, window):
+    """Point the camera down and say where it sees the object. With the window on,
+    keeps showing live video until q is pressed in it (or Ctrl+C)."""
+    calibration = json.loads(CALIBRATION.read_text()) if CALIBRATION.exists() else None
+    grab_spot = calibration and calibration["grab_spot"]
+    if arm.move_to(node, *LOOK_SPOT, LOOK_HEIGHT):
+        print("Couldn't reach the looking pose.")
+        return
+    if window:
+        print("Showing the gripper camera. Press q in the window to finish.")
+    last = None
+    while True:
+        seen = eyes.find(name, grab_spot, settle=last is None)
+        if not seen:
+            said = f"I don't see a {name}."
+        elif calibration:
+            along, side = object_offset(calibration, seen[0])
+            said = (f"I see a {name}, {round(along, -1):+.0f} mm along the arm and "
+                    f"{round(side, -1):+.0f} mm sideways from the grab spot")
+        else:
+            said = f"I see a {name} at pixel {seen[0][0]:.0f}, {seen[0][1]:.0f}"
+        if said != last:
+            print(said + (f" ({seen[1]:.0%} sure)" if seen else ""))
+            last = said
+        if not window or eyes.key == ord("q"):
+            break
+
+
 def gripper_position(node):
     from gestures import catch_up
     catch_up(node)
@@ -307,26 +339,14 @@ def main():
         elif args.command == "pick":
             pick(node, eyes, args.name, args.grab_height)
         else:
-            calibration = json.loads(CALIBRATION.read_text()) if CALIBRATION.exists() else None
-            if arm.move_to(node, *LOOK_SPOT, LOOK_HEIGHT):
-                print("Couldn't reach the looking pose.")
-                return
-            seen = eyes.find(args.name, calibration and calibration["grab_spot"])
-            if not seen:
-                print(f"I don't see a {args.name}.")
-            elif calibration:
-                along, side = object_offset(calibration, seen[0])
-                print(f"I see a {args.name} ({seen[1]:.0%} sure), {along:+.0f} mm along the "
-                      f"arm and {side:+.0f} mm sideways from the grab spot")
-            else:
-                print(f"I see a {args.name} ({seen[1]:.0%} sure) at pixel "
-                      f"{seen[0][0]:.0f}, {seen[0][1]:.0f}")
-            if not args.no_window:
-                input("Press Enter to finish ...")
+            look(node, eyes, args.name, not args.no_window)
         arm.move_joints(node, [[arm.current_joints(node)[0], 0.0, 0.0, 0.0]])
     except KeyboardInterrupt:
         pass
     finally:
+        if not args.no_window:
+            import cv2
+            cv2.destroyAllWindows()
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
