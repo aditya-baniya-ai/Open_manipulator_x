@@ -329,12 +329,16 @@ def connect(node):
         print("Stop them all (hold the real arm first), then start just one:")
         print("  ~/Documents/Open_manipulator_x/launch/stop.sh\n")
         return False
-    # Our own joint buttons are one sender; any other (like a leftover MoveIt Servo)
-    # keeps sending its own "hold here" commands and the arm shakes
-    senders = node.count_publishers("/arm_controller/joint_trajectory")
-    if senders > 1:
+    # Our own programs (gesture menu, panel, voice, brain/arm.py) are all "gesturer" and
+    # only send when you press something, so several are fine. Any other sender (like a
+    # leftover MoveIt Servo) keeps sending its own "hold here" commands and the arm shakes
+    senders = [info.node_name for info in
+               node.get_publishers_info_by_topic("/arm_controller/joint_trajectory")
+               if info.node_name != "gesturer"]
+    if senders:
         print("\nSomething else (probably MoveIt Servo from servo.launch.py) is also sending")
-        print("commands to the arm, so it won't be moved: the arm would shake.")
+        print(f"commands to the arm ({', '.join(senders)}), so it won't be moved: the arm "
+              "would shake.")
         print("Stop it first:  ~/Documents/Open_manipulator_x/launch/stop.sh\n")
         return False
 
