@@ -768,6 +768,43 @@ python3 ~/Documents/Open_manipulator_x/brain/arm.py home
 
 On the real arm, try `go 200 0 100` first (well above the table) and measure with a ruler: the fingertips should be about 200 mm in front of the base and 100 mm above the table. If the arm stands on a plate or board, put its thickness in `MOUNT_HEIGHT` at the top of `brain/arm.py`.
 
+### Pick things up (camera on the gripper)
+
+Robo finds an object with the camera on its gripper, moves right over it, grabs it, lifts it, and puts it back down when you press Enter. Start with something easy to grab: a block or a glue stick, about 20 to 40 mm wide.
+
+1. Start the arm (Terminal 1; hold the arm while it starts):
+   ```bash
+   ~/Documents/Open_manipulator_x/launch/gestures.sh
+   ```
+2. Start the camera (Terminal 2):
+   ```bash
+   ros2 run usb_cam usb_cam_node_exe --ros-args -p video_device:=/dev/video0 -p image_width:=640 -p image_height:=480 -p pixel_format:=mjpeg2rgb -p framerate:=30.0
+   ```
+3. **Teach it once** (Terminal 3). The arm points down with the gripper open; put the block between the fingers and press Enter. It centres the block, lifts up and moves a little, to learn where the block shows up in the picture. That's saved in `brain/camera.json`; teach again if the camera is moved.
+   ```bash
+   python3 ~/Documents/Open_manipulator_x/brain/pick.py teach block
+   ```
+4. Put the block anywhere on the table about 80 to 220 mm in front of the arm, and pick it up:
+   ```bash
+   python3 ~/Documents/Open_manipulator_x/brain/pick.py pick block
+   ```
+
+Other things to try:
+
+```bash
+python3 ~/Documents/Open_manipulator_x/brain/pick.py look block
+```
+
+```bash
+python3 ~/Documents/Open_manipulator_x/brain/pick.py pick "glue stick"
+```
+
+`look` only looks and says where it sees the object. A window shows the gripper camera, with a yellow cross where an object right under the fingers shows up.
+
+- If it can't find the object, try a lower `--conf 0.05`, or another name ("cube", "toy block", "red block").
+- If the fingers hit the table or close above the object, change `--grab-height` (fingertip height when grabbing, default 15 mm).
+- If it says "Missed", it closed on nothing: the gripper closed all the way. The line before it shows the gripper position; tell us if it misses while really holding something.
+
 ### Get the latest code
 
 ```bash
@@ -813,6 +850,7 @@ gestures/
                        talking with Robo (once or live) and the camera greeting
 brain/
   arm.py               Robo's hands: move the gripper to a point in mm (inverse kinematics)
+  pick.py              find an object with the gripper camera and pick it up
 perception/
   detect.py            live object detection from the camera (YOLO / YOLO-World)
 voice/
