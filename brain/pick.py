@@ -14,7 +14,7 @@ That's saved in camera.json next to this file. Teach again if the camera is move
 
 Start the arm and the camera first (see README.md, "Pick things up"), then:
     python3 pick.py teach            follow the steps it prints
-    python3 pick.py look block       only look: live camera with boxes (q to close)
+    python3 pick.py look block       only look, from high up: live camera (q to close)
     python3 pick.py pick block       pick the block up
     python3 pick.py pick "glue stick"
 
@@ -39,6 +39,10 @@ import arm  # noqa: E402  (also makes ../gestures importable)
 CALIBRATION = HERE / "camera.json"
 WORLD_MODEL = "yolov8s-worldv2.pt"
 
+# Search pose: the camera as high as it gets, looking down at the whole pick-up area
+# (about 50-300 mm in front of the base, 160 mm to each side). Joint angles in degrees:
+# shoulder leaning back, elbow, wrist bent down; the base faces forward.
+SEARCH_POSE = (0.0, -52.0, 24.0, 100.0)
 LOOK_HEIGHT = 80.0     # fingertips this high (mm) while looking straight down
 LOOK_SPOT = (180.0, 0.0)          # where the gripper looks first (x, y mm)
 SEARCH_TURNS = [0.0, 0.5, -0.5, 1.0, -1.0]   # base turns (radians) to look around
@@ -249,8 +253,9 @@ def look(node, eyes, name, window):
     keeps showing live video until q is pressed in it (or Ctrl+C)."""
     calibration = json.loads(CALIBRATION.read_text()) if CALIBRATION.exists() else None
     grab_spot = calibration and calibration["grab_spot"]
-    if arm.move_to(node, *LOOK_SPOT, LOOK_HEIGHT):
-        print("Couldn't reach the looking pose.")
+    why = arm.move_joints_safely(node, [math.radians(v) for v in SEARCH_POSE])
+    if why:
+        print(f"Couldn't reach the search pose: {why}")
         return
     if window:
         print("Showing the gripper camera. Press q in the window to finish.")
@@ -340,7 +345,7 @@ def main():
             pick(node, eyes, args.name, args.grab_height)
         else:
             look(node, eyes, args.name, not args.no_window)
-        arm.move_joints(node, [[arm.current_joints(node)[0], 0.0, 0.0, 0.0]])
+        arm.move_joints_safely(node, [arm.current_joints(node)[0], 0.0, 0.0, 0.0])
     except KeyboardInterrupt:
         pass
     finally:

@@ -69,20 +69,24 @@ def forward(joints):
     return BASE_X + r * math.cos(j1), r * math.sin(j1), h, pitch
 
 
-def problem(joints, z=None):
-    """Why these joint angles aren't safe, or None if they are."""
+def wrist_height(joints):
+    a = math.pi / 2 - UPPER_LEAN - joints[1]
+    b = -(joints[1] + joints[2])
+    return SHOULDER_Z + UPPER_LENGTH * math.sin(a) + FOREARM * math.sin(b)
+
+
+def problem(joints, z=None, floor=TABLE_CLEARANCE):
+    """Why these joint angles aren't safe, or None if they are. Nothing may go lower
+    than floor (mm above the table)."""
     for i, (angle, (low, high)) in enumerate(zip(joints, LIMITS)):
         if not low <= angle <= high:
             return f"joint{i + 1} would be at {math.degrees(angle):.0f}°, outside its safe range"
     if z is None:
         z = forward(joints)[2]
-    if z < TABLE_CLEARANCE:
-        return f"that's {z:.0f} mm above the table, lower than {TABLE_CLEARANCE:.0f} mm"
+    if z < floor:
+        return f"that's {z:.0f} mm above the table, lower than {floor:.0f} mm"
     # The wrist must stay above the table too, whichever way the gripper points
-    a = math.pi / 2 - UPPER_LEAN - joints[1]
-    b = -(joints[1] + joints[2])
-    wrist = SHOULDER_Z + UPPER_LENGTH * math.sin(a) + FOREARM * math.sin(b)
-    if wrist < TABLE_CLEARANCE:
+    if wrist_height(joints) < floor:
         return "the wrist would hit the table"
     return None
 
@@ -176,6 +180,31 @@ def move_joints(node, path, at_least=0.5):
     return move_arm(node, points)
 
 
+def path_problem(start, end, checks=50):
+    """Why moving the joints straight from start to end isn't safe (the gripper would
+    pass through the table on the way, for example), or None if it is.
+    If the arm starts lower than allowed (after a bow, say), it may move as long as it
+    never goes lower than where it started, so it can always get back up."""
+    floor = min(TABLE_CLEARANCE, forward(start)[2], wrist_height(start))
+    for i in range(1, checks + 1):
+        why = problem([s + (e - s) * i / checks for s, e in zip(start, end)], floor=floor)
+        if why:
+            return why
+    return None
+
+
+def move_joints_safely(node, joints):
+    """Move to these joint angles. If the direct way isn't safe, go through the home
+    pose (base where it is) first. Returns None, or why it couldn't."""
+    start = current_joints(node)
+    if path_problem(start, joints) is None:
+        return None if move_joints(node, [joints]) else "the arm controller refused"
+    home = [start[0], 0.0, 0.0, 0.0]
+    if path_problem(start, home) or path_problem(home, joints):
+        return "there's no safe way to get there from here"
+    return None if move_joints(node, [home, joints]) else "the arm controller refused"
+
+
 def move_to(node, x, y, z, pitch=DOWN, straight=False):
     """Move the fingertips to (x, y, z) mm. straight=True moves along a straight line
     (for going down to an object and back up). Returns None, or why it couldn't."""
@@ -190,7 +219,7 @@ def move_to(node, x, y, z, pitch=DOWN, straight=False):
     joints, why = solve(x, y, z, pitch)
     if joints is None:
         return f"{format_point((x, y, z))} can't be reached: {why}"
-    return None if move_joints(node, [joints]) else "the arm controller refused"
+    return move_joints_safely(node, joints)
 
 
 # --- Checking the math, without an arm ----------------------------------------------
@@ -228,6 +257,13 @@ def self_test():
     path, why = straight_line((200, 0, 90), (200, 0, 20), DOWN)
     assert path, why
     print(f"Straight line down 70 mm: {len(path)} points, all safe")
+    home, low = [0.0] * 4, solve(240, 0, 20)[0]
+    search = [0.0, math.radians(-52), math.radians(24), math.radians(100)]
+    assert path_problem(home, search) is None and path_problem(home, low) is None
+    assert path_problem(low, [0.0, 1.0, 0.6, 0.3])   # swings the gripper into the table
+    bow = [0.0, 0.6, 0.3, 0.4]   # starts low: may climb out, but not go lower
+    assert path_problem(bow, home) is None and path_problem(bow, [0.0, 1.0, 0.6, 0.3])
+    print("Path check: catches a move that would swing through the table")
     print("All good.")
 
 
@@ -257,7 +293,7 @@ def main():
             print(f"Gripper at {format_point((x, y, z))}, "
                   f"pointing {math.degrees(pitch):.0f}° below level")
         elif args.command == "home":
-            move_joints(node, [[current_joints(node)[0], 0.0, 0.0, 0.0]])
+            move_joints_safely(node, [current_joints(node)[0], 0.0, 0.0, 0.0])
         else:
             pitch = LEVEL if args.level else DOWN
             joints, why = solve(*args.xyz, pitch)
@@ -265,7 +301,10 @@ def main():
                 print(f"Can't go to {format_point(args.xyz)}: {why}")
                 return
             print("Joints: " + ", ".join(f"{math.degrees(j):+.0f}°" for j in joints))
-            move_joints(node, [joints])
+            why = move_joints_safely(node, joints)
+            if why:
+                print(f"Can't go there: {why}")
+                return
             x, y, z, _ = where(node)
             print(f"Arrived at {format_point((x, y, z))}")
     except KeyboardInterrupt:
