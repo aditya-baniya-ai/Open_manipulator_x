@@ -113,6 +113,10 @@ class Text:
             self.cache[key] = (np.asarray(mask, np.float32)[..., None] / 255, x0, y0)
         return self.cache[key]
 
+    def width(self, words, size):
+        """How wide this text is, in pixels."""
+        return self.sprite(words, size, "la")[0].shape[1]
+
     def draw(self, canvas):
         height, width = canvas.shape[:2]
         for words, x, y, size, color, anchor in self.queue:

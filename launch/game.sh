@@ -6,9 +6,10 @@
 #   ~/Documents/Open_manipulator_x/launch/game.sh --no-arm     no arm at all (pretend arm)
 #   ~/Documents/Open_manipulator_x/launch/game.sh --setup      place the target stickers
 #   ~/Documents/Open_manipulator_x/launch/game.sh --balls      Ball Carry instead
+#   ~/Documents/Open_manipulator_x/launch/game.sh --claw       Chocolate Catcher (claw machine)
 #
 # Other options go to the game, e.g. --fullscreen, --tracker yolo, --camera /dev/video2,
-# --keyboard (Ball Carry: W A S D and Space instead of your hand).
+# --keyboard (Ball Carry and Chocolate Catcher: W A S D instead of your hand).
 # The camera must face the player and not be used by another program (don't run
 # robo.sh or usb_cam at the same time).
 #
@@ -28,6 +29,7 @@ while [ $# -gt 0 ]; do
     --sim) SIM=true ;;
     --no-arm) NO_ARM=true; GAME_ARGS+=(--no-arm) ;;
     --balls) GAME=ball_carry.py ;;
+    --claw) GAME=claw_machine.py ;;
     *) GAME_ARGS+=("$1") ;;
   esac
   shift

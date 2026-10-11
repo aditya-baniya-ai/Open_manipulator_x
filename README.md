@@ -929,6 +929,32 @@ No camera, or to test: `--keyboard` moves Robo with `W` `A` `S` `D`, and `Space`
 
 If the gripper misses the balls or touches the table, change `GRAB_HEIGHT` (default 15 mm) at the top of `game/arm_link.py`. If it says "Empty" while it's really holding a ball, the ball is too small or soft for the holding check: change `HOLDING` in the same file (a ball must stop the fingers above that position).
 
+### Chocolate Catcher (game)
+
+A **claw machine** (crane game) with Robo as the claw. It uses the same camera on a stand as the other games (facing the player).
+
+1. Steer the claw with your hand over a chocolate. You have **20 seconds** each try.
+2. **Make a fist** (or press Enter): the claw drops, grabs, and comes back up. If the 20 seconds run out, it drops anyway.
+3. Robo carries the prize to the **prize chute** by itself and lets go.
+4. **Still holding it at the chute? You win it!** Like a real claw machine, a prize can slip out on the way.
+5. **3 tries** per player. The most prizes wins (then the fastest aiming). A How to play screen shows these steps before every game.
+
+Robo checks every win itself: the gripper must still be holding the prize when it reaches the chute (a prize stops the fingers partway; empty, they close all the way).
+
+Set up: put a box or bowl on the table at the **right edge of Robo's reach, level with the middle** (the prize chute; the screen shows where), and the prizes anywhere else in reach. **Wrapped chocolate balls or small soft toys, about 25 to 45 mm**, work best; flat chocolate bars are too thin to grab.
+
+Try it without the robot, then play:
+
+```bash
+~/Documents/Open_manipulator_x/launch/game.sh --claw --no-arm
+```
+
+```bash
+~/Documents/Open_manipulator_x/launch/game.sh --claw --fullscreen
+```
+
+`--keyboard`: `W` `A` `S` `D` move the claw, `Enter` or `Space` drops it. `--sim` uses the simulated arm. The tries, the aiming time and where the chute is (`CHUTE`) are at the top of `game/claw_machine.py`.
+
 ### Get the latest code
 
 ```bash
@@ -981,6 +1007,7 @@ game/
   arm_link.py          the arm follows the hand and whacks (or a pretend arm)
   bench_tracking.py    compares the hand trackers' speed
   ball_carry.py        the Ball Carry game: carry the balls across, fastest time wins
+  claw_machine.py      the Chocolate Catcher game: a claw machine with Robo as the claw
 perception/
   detect.py            live object detection from the camera (YOLO / YOLO-World)
 voice/
@@ -992,7 +1019,7 @@ launch/
   greeter.launch.py    starts the whole greeter robot with one command
   gestures.sh          starts the arm (real or --sim) and the controls (keys, or --gui) together
   robo.sh              starts EVERYTHING: arm, camera, detection and the control panel
-  game.sh              starts the arm and a game (Puppet Master, or --balls for Ball Carry)
+  game.sh              starts the arm and a game (Puppet Master, --balls, --claw)
   stop.sh              stops every robot program (use when something is left running)
 dependencies.repos     list of ROBOTIS code to download (used in Step 5)
 ```

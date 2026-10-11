@@ -8,7 +8,7 @@
 # Every ROS program runs from /opt/ros/humble or the ROBOTIS workspace
 pkill -f /opt/ros/humble
 pkill -f colcon_ws/install
-pkill -f -e "gestures/(gestures|gui|greet)\.py|perception/detect\.py|voice/listen\.py|brain/(arm|pick)\.py|game/(puppet_master|ball_carry)\.py" > /dev/null
+pkill -f -e "gestures/(gestures|gui|greet)\.py|perception/detect\.py|voice/listen\.py|brain/(arm|pick)\.py|game/(puppet_master|ball_carry|claw_machine)\.py" > /dev/null
 sleep 2
 
 # Restart the ROS helper (ros2 node list etc. need it after a forced stop)
