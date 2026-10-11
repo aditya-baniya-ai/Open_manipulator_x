@@ -168,9 +168,10 @@ def glow_circle(canvas, center, radius, color, thickness=-1):
 
 class Camera:
     """Reads the camera in the background and keeps only the newest picture (so the
-    game never shows an old one), mirrored like a mirror."""
+    game never shows an old one), mirrored like a mirror (mirror=False: as it is)."""
 
-    def __init__(self, device):
+    def __init__(self, device, mirror=True):
+        self.mirror = mirror
         self.capture = open_camera(device)
         self.frame, self.count, self.running = None, 0, True
         if not self.capture.isOpened():
@@ -182,7 +183,7 @@ class Camera:
         while self.running:
             ok, frame = self.capture.read()
             if ok:
-                self.frame = cv2.flip(frame, 1)
+                self.frame = cv2.flip(frame, 1) if self.mirror else frame
                 self.count += 1
 
     def close(self):

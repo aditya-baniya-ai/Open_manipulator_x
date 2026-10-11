@@ -24,7 +24,11 @@ TOUCH_HEIGHT = 20.0      # mm: fingertips this high at the bottom of a whack
 NEAR, FAR = 120.0, 220.0  # mm: closest and farthest the gripper goes from the base
 SIDE = math.radians(55)  # the furthest the base turns left or right
 MAX_SPEED = 1.5          # rad/s: fastest any joint moves while following the hand
+MAX_GLIDE = 250.0        # mm/s: fastest the gripper slides across the table
 WHACK_TIME = 0.30        # seconds down, and the same back up
+GRAB_HEIGHT = 15.0       # mm: fingertips this high to grab a ball off the table
+RELEASE_HEIGHT = 40.0    # mm: fingertips this high to let go of a ball
+GRIPPER_WAIT = 0.6       # seconds for the gripper to close or open
 LAG = 0.12               # seconds the pretend arm trails behind (like the real one)
 
 
@@ -57,25 +61,52 @@ class ArmBase:
     def __init__(self, touch_height):
         self.touch_height = touch_height
         self.command = None          # joint angles last sent
+        self.aim = None              # the point (x, y mm) the gripper is sliding to
         self.whack_started = None    # time the current whack began, or None
         self.whack_spot = None       # where the gripper was when it whacked (x, y)
         self.whack_checked = True    # the current whack has been checked for a hit
         self.last_follow = time.monotonic()
+        self.steps = []              # (time, what to do) for grab and release
+        self.busy_until = 0.0        # the arm is grabbing or releasing until then
+        self.closed = False          # the gripper is closed (holding, or tried to)
 
     def whacking(self):
         return self.whack_started is not None and \
             time.monotonic() - self.whack_started < 2 * WHACK_TIME
 
+    def busy(self):
+        """Whacking, grabbing or releasing: the arm doesn't follow the hand meanwhile."""
+        return self.whacking() or time.monotonic() < self.busy_until
+
     def follow(self, u, v):
-        """Move toward this play-area position (does nothing during a whack)."""
+        """Move toward this play-area position (does nothing while busy)."""
         now = time.monotonic()
         seconds, self.last_follow = min(0.1, now - self.last_follow), now
-        if self.whacking() or self.command is None:
+        if self.busy() or self.command is None:
             return
-        goal, _ = arm.solve(*area_to_point(u, v), HOVER_HEIGHT)
-        if goal is None:
-            return
-        self.command = limit_step(self.command, goal, seconds)
+        # Slide the gripper level toward the hand's point (a straight, flat path, so a
+        # carried ball can't sag into the others), no faster than MAX_GLIDE ...
+        if self.aim is None:
+            self.aim = arm.forward(self.command)[:2]
+        gx, gy = area_to_point(u, v)
+        distance = math.hypot(gx - self.aim[0], gy - self.aim[1])
+        share = min(1.0, MAX_GLIDE * seconds / distance) if distance > 0 else 1.0
+        # ... and no joint faster than MAX_SPEED: if a joint would have to (the base,
+        # moving sideways close to it), take a shorter step instead, so all the joints
+        # stay in step and the gripper stays level
+        goal = None
+        for _ in range(4):
+            aim = (self.aim[0] + (gx - self.aim[0]) * share,
+                   self.aim[1] + (gy - self.aim[1]) * share)
+            goal, _ = arm.solve(*aim, HOVER_HEIGHT)
+            if goal is None:
+                return
+            fastest = max(abs(g - c) for g, c in zip(goal, self.command)) / max(seconds, 1e-3)
+            if fastest <= MAX_SPEED:
+                break
+            share *= 0.95 * MAX_SPEED / fastest
+        self.aim = aim
+        self.command = limit_step(self.command, goal, seconds)   # (a last safety net)
         self.send([self.command], [max(0.1, seconds * 2)])
 
     def whack(self):
@@ -92,6 +123,36 @@ class ArmBase:
         self.whack_spot = (x, y)
         self.send([down, self.command], [WHACK_TIME, 2 * WHACK_TIME])
         return True
+
+    def grab(self, height=GRAB_HEIGHT):
+        """Go down, close the gripper, come back up (without freezing the game: the
+        steps happen in run_steps). Returns False if it can't right now."""
+        return self.down_and_up(height, closed=True)
+
+    def release(self, height=RELEASE_HEIGHT):
+        """Go down a little, open the gripper, come back up."""
+        return self.down_and_up(height, closed=False)
+
+    def down_and_up(self, height, closed):
+        if self.busy() or self.command is None:
+            return False
+        x, y, _, _ = arm.forward(self.command)
+        down, _ = arm.solve(x, y, height)
+        if down is None:
+            return False
+        now = time.monotonic()
+        up = list(self.command)
+        self.send([down], [0.45])
+        self.steps = [(now + 0.5, lambda: self.set_gripper(closed)),
+                      (now + 0.5 + GRIPPER_WAIT, lambda: self.send([up], [0.45]))]
+        self.busy_until = now + 1.0 + GRIPPER_WAIT
+        return True
+
+    def run_steps(self):
+        """Do the grab/release steps that are due (call every frame)."""
+        now = time.monotonic()
+        while self.steps and now >= self.steps[0][0]:
+            self.steps.pop(0)[1]()
 
     def bottom_of_whack(self):
         """True once, when the current whack reaches the table: the moment to check
@@ -142,8 +203,11 @@ class VirtualArm(ArmBase):
             self.state = limit_step(self.state, eased, seconds * 2.5)
         return self.state
 
+    def set_gripper(self, closed):
+        self.closed = closed
+
     def update(self):
-        pass
+        self.run_steps()
 
     def stop(self):
         pass
@@ -173,7 +237,19 @@ class RealArm(ArmBase):
         if why:
             return why
         self.command = list(goal)
+        self.node.gripper.wait_for_server(timeout_sec=2.0)
+        self.set_gripper(False)
         return None
+
+    def set_gripper(self, closed):
+        """Open or close the gripper without waiting for it."""
+        from control_msgs.action import GripperCommand
+        from gestures import GRIPPER_POSITION
+        goal = GripperCommand.Goal()
+        goal.command.position = GRIPPER_POSITION["close" if closed else "open"]
+        goal.command.max_effort = 100.0
+        self.node.gripper.send_goal_async(goal)
+        self.closed = closed
 
     def send(self, path, times):
         from gestures import JOINTS, point
@@ -187,6 +263,7 @@ class RealArm(ArmBase):
         """Read new joint angles (call every frame)."""
         for _ in range(5):
             self.rclpy.spin_once(self.node, timeout_sec=0.0)
+        self.run_steps()
 
     def joints(self):
         from gestures import JOINTS

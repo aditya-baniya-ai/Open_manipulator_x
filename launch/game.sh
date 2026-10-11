@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Start the Puppet Master game with one command: the arm, then the game.
+# Start a game with one command: the arm, then the game.
 #
-#   ~/Documents/Open_manipulator_x/launch/game.sh              real arm
+#   ~/Documents/Open_manipulator_x/launch/game.sh              Puppet Master, real arm
 #   ~/Documents/Open_manipulator_x/launch/game.sh --sim        simulated arm in RViz
 #   ~/Documents/Open_manipulator_x/launch/game.sh --no-arm     no arm at all (pretend arm)
 #   ~/Documents/Open_manipulator_x/launch/game.sh --setup      place the target stickers
+#   ~/Documents/Open_manipulator_x/launch/game.sh --balls --table-camera /dev/video2
+#                                                              Ball Carry instead
 #
-# Other options go to the game, e.g. --fullscreen, --tracker yolo, --camera /dev/video2.
+# Other options go to the game, e.g. --fullscreen, --tracker yolo, --camera /dev/video2,
+# --keyboard (Ball Carry: W A S D and Space instead of your hand).
 # The camera must face the player and not be used by another program (don't run
 # robo.sh or usb_cam at the same time).
 #
@@ -19,11 +22,13 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(dirname "$HERE")"
 SIM=false
 NO_ARM=false
+GAME=puppet_master.py
 GAME_ARGS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --sim) SIM=true ;;
     --no-arm) NO_ARM=true; GAME_ARGS+=(--no-arm) ;;
+    --balls) GAME=ball_carry.py ;;
     *) GAME_ARGS+=("$1") ;;
   esac
   shift
@@ -34,7 +39,7 @@ PYTHON=python3
 [ -x "$HOME/game_venv/bin/python" ] && PYTHON="$HOME/game_venv/bin/python"
 
 if [ "$NO_ARM" = true ]; then
-  cd "$REPO/game" && exec "$PYTHON" puppet_master.py "${GAME_ARGS[@]}"
+  cd "$REPO/game" && exec "$PYTHON" "$GAME" "${GAME_ARGS[@]}"
 fi
 
 # Two arm programs at once fight each other and the arm shakes, so refuse to start a second
@@ -70,4 +75,4 @@ fi
 ARM_GROUP=$!
 
 echo "If it stays on 'Waiting for the arm', look in /tmp/robo_arm.log for errors."
-cd "$REPO/game" && "$PYTHON" puppet_master.py "${GAME_ARGS[@]}"
+cd "$REPO/game" && "$PYTHON" "$GAME" "${GAME_ARGS[@]}"

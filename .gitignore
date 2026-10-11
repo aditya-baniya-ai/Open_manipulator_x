@@ -12,5 +12,7 @@ __pycache__/
 # YOLO model files (downloaded automatically)
 *.pt
 
-# Puppet Master scores (local to each robot)
+# Game scores and table setup (local to each robot)
 game/leaderboard.json
+game/ball_leaderboard.json
+game/ball_setup.json
