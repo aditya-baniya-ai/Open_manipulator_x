@@ -17,7 +17,7 @@ import time
 
 import cv2
 
-from tracker import MediaPipeHands, YoloPose, timed
+from tracker import MediaPipeHands, YoloPose, open_camera, timed
 
 
 def frames_from(args):
@@ -28,10 +28,7 @@ def frames_from(args):
         frame = cv2.flip(frame, 1)
         while True:
             yield frame
-    camera = cv2.VideoCapture(args.camera)
-    camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-    camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    camera = open_camera(args.camera)
     if not camera.isOpened():
         sys.exit(f"Can't open camera {args.camera}. Is another program using it?")
     while True:

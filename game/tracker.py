@@ -145,6 +145,23 @@ def make_tracker(name="auto", **options):
     return YoloPose(**options)
 
 
+def open_camera(device):
+    """Open the camera: a number (0), or a device path (/dev/video0, opened with V4L2,
+    Linux's own camera system: the quickest way on the Jetson)."""
+    if str(device).isdigit():
+        capture = cv2.VideoCapture(int(device))
+    elif str(device).startswith("/dev/"):
+        capture = cv2.VideoCapture(device, cv2.CAP_V4L2)
+    else:
+        capture = cv2.VideoCapture(device)
+    capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+    capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    capture.set(cv2.CAP_PROP_FPS, 60)
+    capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    return capture
+
+
 def timed(tracker, frame):
     started = time.perf_counter()
     hand = tracker.track(frame)

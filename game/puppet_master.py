@@ -32,7 +32,7 @@ import cv2
 import numpy as np
 
 import arm_link
-from tracker import make_tracker
+from tracker import make_tracker, open_camera
 
 HERE = Path(__file__).resolve().parent
 LEADERBOARD = HERE / "leaderboard.json"
@@ -171,13 +171,7 @@ class Camera:
     game never shows an old one), mirrored like a mirror."""
 
     def __init__(self, device):
-        source = int(device) if str(device).isdigit() else device
-        self.capture = cv2.VideoCapture(source)
-        self.capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-        self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        self.capture.set(cv2.CAP_PROP_FPS, 60)
-        self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        self.capture = open_camera(device)
         self.frame, self.count, self.running = None, 0, True
         if not self.capture.isOpened():
             raise RuntimeError(f"Can't open the camera {device}. Is another program "
