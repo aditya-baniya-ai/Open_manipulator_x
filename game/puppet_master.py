@@ -69,6 +69,7 @@ GREEN = (120, 230, 120)
 PANEL = (40, 28, 30)
 CAMERA_BOX = (30, 100, 650, 565)     # left, top, right, bottom
 MAP_BOX = (680, 100, 1250, 690)
+FOOTER_BOX = (30, 580, 650, 690)
 
 FONT_FILES = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",      # Ubuntu (the Jetson)
@@ -78,13 +79,15 @@ FONT_FILES = [
 
 
 class Text:
-    """Nice text (TrueType fonts through Pillow), drawn in one go at the end of a frame."""
+    """Nice text (TrueType fonts through Pillow). Each piece of text is drawn once into a
+    small picture and kept, then pasted where it's needed: much faster than drawing
+    all the text on the whole screen every frame."""
 
     def __init__(self):
-        from PIL import ImageFont
-        self.fonts, self.queue = {}, []
+        from PIL import Image, ImageDraw, ImageFont
+        self.Image, self.ImageDraw, self.ImageFont = Image, ImageDraw, ImageFont
+        self.fonts, self.cache, self.queue = {}, {}, []
         self.file = next((f for f in FONT_FILES if Path(f).exists()), None)
-        self.ImageFont = ImageFont
 
     def font(self, size):
         if size not in self.fonts:
@@ -93,16 +96,38 @@ class Text:
         return self.fonts[size]
 
     def add(self, words, x, y, size=24, color=INK, anchor="la"):
-        self.queue.append((str(words), x, y, size, color, anchor))
+        self.queue.append((str(words), int(x), int(y), size, color, anchor))
+
+    def sprite(self, words, size, anchor):
+        """The text as a see-through mask (0-1), and where its corner is from (x, y)."""
+        key = (words, size, anchor)
+        if key not in self.cache:
+            if len(self.cache) > 600:
+                self.cache.clear()
+            font = self.font(size)
+            probe = self.ImageDraw.Draw(self.Image.new("L", (1, 1)))
+            x0, y0, x1, y1 = probe.textbbox((0, 0), words, font=font, anchor=anchor)
+            mask = self.Image.new("L", (max(1, x1 - x0), max(1, y1 - y0)), 0)
+            self.ImageDraw.Draw(mask).text((-x0, -y0), words, font=font, fill=255,
+                                            anchor=anchor)
+            self.cache[key] = (np.asarray(mask, np.float32)[..., None] / 255, x0, y0)
+        return self.cache[key]
 
     def draw(self, canvas):
-        from PIL import Image, ImageDraw
-        image = Image.fromarray(canvas)
-        draw = ImageDraw.Draw(image)
+        height, width = canvas.shape[:2]
         for words, x, y, size, color, anchor in self.queue:
-            draw.text((x, y), words, font=self.font(size), fill=color, anchor=anchor)
+            mask, dx, dy = self.sprite(words, size, anchor)
+            left, top = x + dx, y + dy
+            right, bottom = left + mask.shape[1], top + mask.shape[0]
+            # Only the part that's on the screen
+            cl, ct, cr, cb = max(0, left), max(0, top), min(width, right), min(height, bottom)
+            if cl >= cr or ct >= cb:
+                continue
+            m = mask[ct - top:cb - top, cl - left:cr - left]
+            area = canvas[ct:cb, cl:cr]
+            area[:] = (area * (1 - m) + np.array(color, np.float32) * m).astype(np.uint8)
         self.queue = []
-        return np.asarray(image).copy()
+        return canvas
 
 
 def background():
@@ -126,10 +151,16 @@ def panel(canvas, box, color=PANEL, border=(90, 60, 70)):
 
 
 def glow_circle(canvas, center, radius, color, thickness=-1):
-    """A circle with a soft glow around it."""
-    overlay = canvas.copy()
-    cv2.circle(overlay, center, int(radius * 1.6), color, -1, cv2.LINE_AA)
-    cv2.addWeighted(overlay, 0.25, canvas, 0.75, 0, canvas)
+    """A circle with a soft glow around it (only the area around it is touched)."""
+    glow = int(radius * 1.6) + 2
+    x, y = center
+    left, top = max(0, x - glow), max(0, y - glow)
+    right, bottom = min(canvas.shape[1], x + glow), min(canvas.shape[0], y + glow)
+    if left < right and top < bottom:
+        area = canvas[top:bottom, left:right]
+        overlay = area.copy()
+        cv2.circle(overlay, (x - left, y - top), glow - 2, color, -1, cv2.LINE_AA)
+        cv2.addWeighted(overlay, 0.25, area, 0.75, 0, area)
     cv2.circle(canvas, center, int(radius), color, thickness, cv2.LINE_AA)
 
 
@@ -164,6 +195,39 @@ class Camera:
         self.running = False
         time.sleep(0.05)
         self.capture.release()
+
+
+class Tracking:
+    """Tracks the hand in the background, always on the newest camera picture, so
+    drawing the screen never waits for it."""
+
+    def __init__(self, tracker, camera):
+        self.tracker, self.camera = tracker, camera
+        self.hand, self.frame, self.ms, self.running = None, None, 0.0, True
+        self.failed = False
+        threading.Thread(target=self.run, daemon=True).start()
+
+    def run(self):
+        last = None
+        while self.running:
+            frame = self.camera.frame
+            if frame is None or frame is last:
+                time.sleep(0.002)
+                continue
+            last = frame
+            started = time.perf_counter()
+            try:
+                hand = self.tracker.track(frame)
+            except Exception as error:  # a bad picture must not stop the tracking
+                if not self.failed:
+                    print(f"Hand tracking error (still trying): {error}")
+                self.failed, hand = True, None
+            self.ms = 0.9 * self.ms + 0.1 * (time.perf_counter() - started) * 1000
+            # The picture and the hand found in it, together (so the drawing lines up)
+            self.hand, self.frame = hand, frame
+
+    def close(self):
+        self.running = False
 
 
 # --- The game ------------------------------------------------------------------------
@@ -277,8 +341,11 @@ class Game:
         self.args = args
         self.text = Text()
         self.background = background()
+        for box in (CAMERA_BOX, MAP_BOX, FOOTER_BOX):     # the panels never change
+            panel(self.background, box)
         self.tracker = make_tracker(args.tracker)
         self.camera = Camera(args.camera)
+        self.tracking = Tracking(self.tracker, self.camera)
         self.robot = arm_link.VirtualArm(args.touch_height) if args.no_arm \
             else arm_link.RealArm(args.touch_height, args.ros_args)
         self.state, self.name, self.round = "title", "", None
@@ -292,11 +359,8 @@ class Game:
 
     # -- each frame ---------------------------------------------------------------
     def step(self):
-        frame = self.camera.frame
-        if frame is not None:
-            started = time.perf_counter()
-            self.hand = self.tracker.track(frame)
-            self.track_ms = 0.9 * self.track_ms + 0.1 * (time.perf_counter() - started) * 1000
+        frame, self.hand = self.tracking.frame, self.tracking.hand
+        self.track_ms = self.tracking.ms
         now = time.monotonic()
         if self.hand:
             self.hand_seen = now
@@ -404,7 +468,6 @@ class Game:
 
     def draw_camera(self, canvas, frame):
         left, top, right, bottom = CAMERA_BOX
-        panel(canvas, CAMERA_BOX)
         if frame is None:
             self.text.add("Waiting for the camera ...", (left + right) // 2,
                           (top + bottom) // 2, 22, DIM, "mm")
@@ -456,7 +519,6 @@ class Game:
 
     def draw_map(self, canvas):
         left, top, right, bottom = MAP_BOX
-        panel(canvas, MAP_BOX)
         t = self.text
         t.add("THE TABLE", left + 15, top + 12, 16, DIM)
         # The area the gripper can reach
@@ -509,7 +571,6 @@ class Game:
 
     def draw_footer(self, canvas):
         left, top, right, bottom = CAMERA_BOX
-        panel(canvas, (left, bottom + 15, right, 690))
         t = self.text
         game = self.round if self.state in ("play", "results") else None
         stats = [("HITS", game.hits if game else 0),
@@ -627,7 +688,11 @@ def main():
         setup_targets(args)
         return
 
-    game = Game(args)
+    try:
+        game = Game(args)
+    except RuntimeError as error:      # no camera
+        print(error)
+        return
     why = game.robot.start()
     if why:
         print(f"Can't start the arm: {why}")
@@ -650,6 +715,7 @@ def main():
         pass
     finally:
         cv2.destroyAllWindows()
+        game.tracking.close()
         game.camera.close()
         game.robot.stop()
 
