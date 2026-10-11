@@ -805,6 +805,92 @@ python3 ~/Documents/Open_manipulator_x/brain/pick.py pick "glue stick"
 - If the fingers hit the table or close above the object, change `--grab-height` (fingertip height when grabbing, default 15 mm).
 - If it says "Missed", it closed on nothing: the gripper closed all the way. The line before it shows the gripper position; tell us if it misses while really holding something.
 
+### Puppet Master (game)
+
+An arcade game: **your hand controls Robo's arm**. A camera on a stand watches the player; Robo's gripper follows the hand, and **making a fist whacks** (Robo taps straight down). Target stickers lie on the table in front of Robo, and the screen lights one up at a time: whack it before its timer runs out.
+
+| Target | Points |
+|---|---|
+| Normal (blue) | 50, plus up to 50 for being quick |
+| Gold | double points, but it doesn't stay long |
+| Red | **don't whack it**: −300 and the combo is gone (+50 for leaving it alone) |
+| Missed whack | −50 and the combo is gone |
+| Combo | ×2 after 5 hits in a row, ×3 after 10 |
+
+A round is 60 seconds and the max score is 9,999. Ranks: S 7,500+, A 5,500+, B 3,500+, C below. The top 10 are kept in `game/leaderboard.json` and shown on the title screen.
+
+**1. Get the game** (it's on its own branch; `git checkout main` goes back to everything else):
+
+```bash
+cd ~/Documents/Open_manipulator_x && git fetch && git checkout game && git pull
+```
+
+**2. Install MediaPipe** (the hand tracker), once. It goes in its own environment, `~/game_venv`, so nothing else on the Jetson changes. Everything already installed (ROS, OpenCV, YOLO) still works inside it.
+
+```bash
+python3 -m venv --system-site-packages ~/game_venv
+```
+
+```bash
+python3 -c "import site; print(site.getusersitepackages())" > ~/game_venv/lib/python3.10/site-packages/user_site.pth
+```
+
+```bash
+~/game_venv/bin/pip install --no-deps mediapipe==0.10.18
+```
+
+```bash
+~/game_venv/bin/pip install absl-py attrs flatbuffers "protobuf>=4.25.3,<5" sentencepiece
+```
+
+Check it (NumPy must still be 1.x):
+
+```bash
+~/game_venv/bin/python -c "import mediapipe, cv2, numpy; print('mediapipe', mediapipe.__version__, 'numpy', numpy.__version__)"
+```
+
+To undo all of it: `rm -rf ~/game_venv`.
+
+**3. Put the camera on a stand** facing where the player stands (about 1.5 to 2 m away, at chest height), not on the gripper. The game uses the camera directly, so don't run `robo.sh` or the `usb_cam` camera at the same time.
+
+**4. Check the hand tracking speed** (only the camera; the arm doesn't move). Hold a hand up in front of the camera:
+
+```bash
+cd ~/Documents/Open_manipulator_x/game && ~/game_venv/bin/python bench_tracking.py
+```
+
+It compares MediaPipe and YOLO pose and says which is faster. The game uses MediaPipe (it sees a fist; YOLO pose has no fingers, so with `--tracker yolo` you whack by raising your other hand). To make YOLO pose faster on the Jetson GPU, build its TensorRT model once (then the benchmark and the game use it automatically):
+
+```bash
+cd ~ && yolo export model=yolo11n-pose.pt format=engine half=True imgsz=320 device=0
+```
+
+**5. Try it without the robot** (a pretend arm on the screen):
+
+```bash
+~/Documents/Open_manipulator_x/launch/game.sh --no-arm
+```
+
+**6. Place the target stickers** (once, on the real arm): the gripper stops over each target spot in turn; put a sticker (or a coin, or a coaster) right under it and press Enter.
+
+```bash
+~/Documents/Open_manipulator_x/launch/game.sh --setup
+```
+
+**7. Play.** In the simulation first, then on the real arm:
+
+```bash
+~/Documents/Open_manipulator_x/launch/game.sh --sim
+```
+
+```bash
+~/Documents/Open_manipulator_x/launch/game.sh --fullscreen
+```
+
+Type your name and press Enter, hold your hand up, and play. Keys: `F` full screen, `Esc` quit (it stops the arm too, so hold the real arm).
+
+Safety: the player stands back behind a line, not within the arm's reach. The arm only moves inside the play area, never faster than 1.5 rad/s, never lower than the touch height, and it holds still when it loses sight of the hand. If the fingers press too hard on the table, raise `--touch-height 25` (default 20 mm). The rules (round time, points, ranks, target spots) are at the top of `game/puppet_master.py`.
+
 ### Get the latest code
 
 ```bash
@@ -851,6 +937,11 @@ gestures/
 brain/
   arm.py               Robo's hands: move the gripper to a point in mm (inverse kinematics)
   pick.py              find an object with the gripper camera and pick it up
+game/
+  puppet_master.py     the Puppet Master game: your hand controls Robo, whack the targets
+  tracker.py           hand tracking (MediaPipe hands or YOLO pose)
+  arm_link.py          the arm follows the hand and whacks (or a pretend arm)
+  bench_tracking.py    compares the hand trackers' speed
 perception/
   detect.py            live object detection from the camera (YOLO / YOLO-World)
 voice/
@@ -862,6 +953,7 @@ launch/
   greeter.launch.py    starts the whole greeter robot with one command
   gestures.sh          starts the arm (real or --sim) and the controls (keys, or --gui) together
   robo.sh              starts EVERYTHING: arm, camera, detection and the control panel
+  game.sh              starts the arm and the Puppet Master game
   stop.sh              stops every robot program (use when something is left running)
 dependencies.repos     list of ROBOTIS code to download (used in Step 5)
 ```
