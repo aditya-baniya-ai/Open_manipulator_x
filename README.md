@@ -911,7 +911,7 @@ Robo checks every carry itself:
 | Gripper closed on nothing | "Empty" |
 | Ball picked up from the right side and let go there again | doesn't count twice |
 
-The top 10 (most balls, then fastest time) are on the title screen.
+Before every game a **How to play** screen shows these steps (type your name, Enter, read, Enter). The top 10 (most balls, then fastest time) are on the title screen.
 
 Try it without the robot (a pretend arm and pretend balls):
 

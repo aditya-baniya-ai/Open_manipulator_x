@@ -230,9 +230,15 @@ class Game:
     def key(self, key):
         if key == 27:
             return False
-        if self.state == "title":
+        if self.state == "howto":
             if key in (13, 10):
                 self.state = "ready"
+            elif key in (8, 127):                       # Backspace: back to the name
+                self.state = "title"
+            return True
+        if self.state == "title":
+            if key in (13, 10):
+                self.state = "howto"
             elif key in (8, 127):
                 self.name = self.name[:-1]
             elif 32 <= key < 127 and len(self.name) < 12:
@@ -353,6 +359,20 @@ class Game:
             t.add(self.message, (left + right) // 2, bottom - 40, 26, GREEN if good else RED,
                   "mm")
 
+    def draw_howto(self, canvas):
+        t, mid = self.text, W // 2
+        t.add("HOW TO PLAY", mid, 70, 52, GOLD, "mm")
+        t.add("Robo checks every carry itself: the ball must really be in the gripper "
+              "and let go on the right side.", mid, 120, 17, DIM, "mm")
+        for i, (big, small) in enumerate(how_to_play(self.keyboard)):
+            y = 185 + i * 72
+            cv2.circle(canvas, (mid - 330, y + 8), 22, CYAN, 2, cv2.LINE_AA)
+            t.add(str(i + 1), mid - 330, y + 8, 22, CYAN, "mm")
+            t.add(big, mid - 290, y - 6, 26, INK)
+            t.add(small, mid - 290, y + 26, 18, DIM)
+        t.add("press ENTER to start", mid, 640, 24, GREEN, "mm")
+        t.add("Backspace: change your name", mid, 675, 14, DIM, "mm")
+
     def draw_footer(self, canvas):
         left, top, right, bottom = FOOTER_BOX
         t = self.text
@@ -397,6 +417,8 @@ class Game:
                 t.add(f"{e['balls']}/{BALLS}  {e['time']:.1f}s", x + 280, y, 20, GOLD, "ra")
             if not self.board:
                 t.add("Be the first on the board!", mid, 500, 20, DIM, "mm")
+        elif self.state == "howto":
+            self.draw_howto(canvas)
         elif self.state == "ready":
             t.add(f"Get ready, {self.name or 'player'}!", mid, 250, 44, INK, "mm")
             t.add(f"Put all {BALLS} balls on the LEFT side of the table", mid, 310, 22, CYAN,
@@ -425,6 +447,22 @@ class Game:
                 t.add(f"Fastest ball {min(gaps):.1f}s   ·   Dropped early {r['drops']}", mid,
                       350, 20, INK, "mm")
             t.add("Put the balls back on the left, then press ENTER", mid, 430, 18, DIM, "mm")
+
+
+def how_to_play(keyboard):
+    """The steps shown before every game."""
+    move = "W A S D move Robo" if keyboard else "Robo's gripper follows your hand"
+    grab = "press Space" if keyboard else "make a fist"
+    drop = "press Space again" if keyboard else "open your hand"
+    return [
+        (f"{move}", "Move it over a ball on the LEFT side of the table."),
+        (f"To grab, {grab}", "Robo reaches down and picks the ball up."),
+        ("Carry it across", "Move over the gold middle line to the RIGHT side."),
+        (f"To let go, {drop}", "On the right side the ball counts: +1."),
+        ("Dropped it too early?", "Just pick it up again and finish the carry."),
+        (f"Carry all {BALLS} balls", "The stopwatch stops at the last one. P pauses it. "
+                                     "Fastest time wins!"),
+    ]
 
 
 def main():
