@@ -5,8 +5,7 @@
 #   ~/Documents/Open_manipulator_x/launch/game.sh --sim        simulated arm in RViz
 #   ~/Documents/Open_manipulator_x/launch/game.sh --no-arm     no arm at all (pretend arm)
 #   ~/Documents/Open_manipulator_x/launch/game.sh --setup      place the target stickers
-#   ~/Documents/Open_manipulator_x/launch/game.sh --balls --table-camera /dev/video2
-#                                                              Ball Carry instead
+#   ~/Documents/Open_manipulator_x/launch/game.sh --balls      Ball Carry instead
 #
 # Other options go to the game, e.g. --fullscreen, --tracker yolo, --camera /dev/video2,
 # --keyboard (Ball Carry: W A S D and Space instead of your hand).

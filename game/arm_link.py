@@ -29,6 +29,8 @@ WHACK_TIME = 0.30        # seconds down, and the same back up
 GRAB_HEIGHT = 15.0       # mm: fingertips this high to grab a ball off the table
 RELEASE_HEIGHT = 40.0    # mm: fingertips this high to let go of a ball
 GRIPPER_WAIT = 0.6       # seconds for the gripper to close or open
+HOLDING = -0.006         # gripper position: stopped above this when closing = a ball is
+                         # in it (empty, it closes all the way to -0.01)
 LAG = 0.12               # seconds the pretend arm trails behind (like the real one)
 
 
@@ -206,6 +208,10 @@ class VirtualArm(ArmBase):
     def set_gripper(self, closed):
         self.closed = closed
 
+    def holding(self):
+        """Is the gripper holding something? (The pretend table sets self.held.)"""
+        return self.closed and getattr(self, "held", None) is not None
+
     def update(self):
         self.run_steps()
 
@@ -250,6 +256,12 @@ class RealArm(ArmBase):
         goal.command.max_effort = 100.0
         self.node.gripper.send_goal_async(goal)
         self.closed = closed
+
+    def holding(self):
+        """Is the gripper holding something? Closing on a ball stops the fingers
+        partway; empty, they close all the way."""
+        position = self.node.joints.get("gripper_left_joint")
+        return self.closed and position is not None and position > HOLDING
 
     def send(self, path, times):
         from gestures import JOINTS, point

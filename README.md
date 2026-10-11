@@ -893,64 +893,41 @@ Safety: the player stands back behind a line, not within the arm's reach. The ar
 
 ### Ball Carry (game)
 
-Move Robo with your hand, grab the ball the screen asks for, and carry it to the other side. **As many balls as you can in 60 seconds.**
+Move Robo with your hand and carry all **5 balls** from the left side of the table to the right side, as fast as you can. **Fastest time wins.** It uses the same camera on a stand as Puppet Master (facing the player); nothing else.
 
-- 5 colored balls (red, orange, yellow, green, blue; ping-pong size, about 40 mm) start on the **left** of the table, the PICK UP zone.
-- The screen says which one to carry: "Carry the GREEN ball".
-- Move your hand: Robo follows, gliding level at 60 mm so a carried ball doesn't knock the others. **Close your hand** (fist): Robo goes down and grabs. Move over the **right** side, the DROP zone, and **open your hand**: Robo lets go.
-- A **camera looking at the table** checks every ball by its color: a ball counts once it sits in the DROP zone for half a second with the gripper open.
+- Put 5 balls (ping-pong size, about 40 mm) on the **left** side of the table, within Robo's reach: closer than about 220 mm to the base and not more than about 55 degrees to the side.
+- Move your hand: Robo follows, gliding level at 60 mm so a carried ball doesn't knock the others.
+- **Close your hand** (fist): Robo goes down and grabs. Move over to the **right** side and **open your hand**: Robo lets go.
+- The stopwatch stops when the 5th ball is across. `P` pauses and restarts it. The round ends anyway after 2 minutes.
 
-| What happens | Points |
+Robo checks every carry itself:
+- **Holding a ball?** A ball stops the gripper fingers partway; empty, they close all the way.
+- **Across?** Robo knows where its gripper is from its joint angles: the ball has to be let go on the right side, and not picked up from the right side (so a ball that's already across can't count twice).
+
+| What happens | On screen |
 |---|---|
-| The right ball delivered | +1000 (+1 ball) |
-| A wrong ball delivered | nothing ("we needed the GREEN one") |
-| All 5 balls in time | +10 for every second left |
+| Ball let go on the right side | +1 (and the time it took) |
+| Ball let go before the right side | "Not across yet": pick it up again and finish |
+| Gripper closed on nothing | "Empty" |
+| Ball picked up from the right side and let go there again | doesn't count twice |
 
-Max score 5,600. Ranks by balls: S all 5, A 4, B 3, C fewer. The top 10 are shown on the title screen.
+The top 10 (most balls, then fastest time) are on the title screen.
 
-**It needs two cameras:** one facing the player (the hand, like Puppet Master) and one looking down at the table (the balls). With only one camera, use `--keyboard`: point the camera at the table and move Robo with `W` `A` `S` `D`, grab and let go with `Space`.
-
-Put the balls where Robo can reach them: within about 220 mm of the base, and not further than about 55 degrees to the side. `game.sh --no-arm --balls` shows a pretend table where all of them are in reach.
-
-**1. Find the cameras' names** (with both plugged in):
-
-```bash
-v4l2-ctl --list-devices
-```
-
-(Each camera shows a few `/dev/video` numbers; use the first one listed for each.)
-
-**2. Set up the table camera** (once, and again if the camera or the lights change). Drag a box around the PICK UP zone and press Enter, then the DROP zone, then click each ball (press `s` to skip a color you don't have). It then shows what it sees: every ball should get a circle with its color. Press `q` to finish.
-
-```bash
-cd ~/Documents/Open_manipulator_x/game && python3 balls.py setup --camera /dev/video2
-```
-
-To check it again later:
-
-```bash
-cd ~/Documents/Open_manipulator_x/game && python3 balls.py test --camera /dev/video2
-```
-
-**3. Try it without the robot** (a pretend arm and a pretend table):
+Try it without the robot (a pretend arm and pretend balls):
 
 ```bash
 ~/Documents/Open_manipulator_x/launch/game.sh --balls --no-arm
 ```
 
-**4. Play** (in the simulation first, then on the real arm). With two cameras:
+Play (in the simulation first with `--sim`, then on the real arm):
 
 ```bash
-~/Documents/Open_manipulator_x/launch/game.sh --balls --camera /dev/video0 --table-camera /dev/video2 --fullscreen
+~/Documents/Open_manipulator_x/launch/game.sh --balls --fullscreen
 ```
 
-With one camera (looking at the table) and the keyboard:
+No camera, or to test: `--keyboard` moves Robo with `W` `A` `S` `D`, and `Space` grabs and lets go.
 
-```bash
-~/Documents/Open_manipulator_x/launch/game.sh --balls --keyboard --table-camera /dev/video0
-```
-
-Add `--sim` to use the simulated arm. If the gripper misses the balls or hits the table, change `GRAB_HEIGHT` (default 15 mm) at the top of `game/arm_link.py`.
+If the gripper misses the balls or touches the table, change `GRAB_HEIGHT` (default 15 mm) at the top of `game/arm_link.py`. If it says "Empty" while it's really holding a ball, the ball is too small or soft for the holding check: change `HOLDING` in the same file (a ball must stop the fingers above that position).
 
 ### Get the latest code
 
@@ -1003,8 +980,7 @@ game/
   tracker.py           hand tracking (MediaPipe hands or YOLO pose)
   arm_link.py          the arm follows the hand and whacks (or a pretend arm)
   bench_tracking.py    compares the hand trackers' speed
-  ball_carry.py        the Ball Carry game: carry the colored balls to the other side
-  balls.py             finds the balls by color with the table camera (setup and test)
+  ball_carry.py        the Ball Carry game: carry the balls across, fastest time wins
 perception/
   detect.py            live object detection from the camera (YOLO / YOLO-World)
 voice/
