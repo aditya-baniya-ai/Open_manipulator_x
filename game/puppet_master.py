@@ -501,19 +501,20 @@ class Game:
     def to_map(self, u, v):
         left, top, right, bottom = MAP_BOX
         cx = (left + right) // 2
-        # The map shows the table from the player's side: Robo at the top
-        base_y = top + 70
+        # Robo at the bottom, the player's side at the top: the gripper moves on the
+        # map the same way as the hand (hand up = toward the player = up)
+        base_y = bottom - 60
         scale = min((right - left - 60) / (2 * arm_link.FAR * math.sin(arm_link.SIDE)),
-                    (bottom - top - 130) / arm_link.FAR)
-        reach = arm_link.NEAR + v * (arm_link.FAR - arm_link.NEAR)
+                    (bottom - top - 140) / arm_link.FAR)
+        reach = arm_link.FAR - v * (arm_link.FAR - arm_link.NEAR)
         angle = (u - 0.5) * 2 * arm_link.SIDE
         return (int(cx + reach * math.sin(angle) * scale),
-                int(base_y + reach * math.cos(angle) * scale)), scale
+                int(base_y - reach * math.cos(angle) * scale)), scale
 
     def target_on_map(self, target):
         reach, angle = target
         u = 0.5 + math.radians(angle) / (2 * arm_link.SIDE)
-        v = (reach - arm_link.NEAR) / (arm_link.FAR - arm_link.NEAR)
+        v = (arm_link.FAR - reach) / (arm_link.FAR - arm_link.NEAR)
         return self.to_map(u, v)[0]
 
     def draw_map(self, canvas):
@@ -526,10 +527,10 @@ class Game:
         cv2.fillPoly(canvas, [np.array(points)], (60, 40, 45), cv2.LINE_AA)
         cv2.polylines(canvas, [np.array(points)], True, (110, 80, 90), 1, cv2.LINE_AA)
         # Robo
-        base = ((left + right) // 2, top + 70)
+        base = ((left + right) // 2, bottom - 60)
         cv2.circle(canvas, base, 22, (90, 70, 80), -1, cv2.LINE_AA)
         t.add("ROBO", base[0], base[1], 13, INK, "mm")
-        t.add("you are here", base[0], bottom - 18, 14, DIM, "mm")
+        t.add("you are here", base[0], top + 45, 14, DIM, "mm")
 
         game = self.round if self.state == "play" else None
         lit = game.target if game else None

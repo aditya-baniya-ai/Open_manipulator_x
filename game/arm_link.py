@@ -21,10 +21,11 @@ import arm  # noqa: E402  (also makes ../gestures importable)
 
 HOVER_HEIGHT = 60.0      # mm: fingertips this high while moving around
 TOUCH_HEIGHT = 20.0      # mm: fingertips this high at the bottom of a whack
-NEAR, FAR = 120.0, 220.0  # mm: closest and farthest the gripper goes from the base
+NEAR, FAR = 90.0, 220.0   # mm: closest and farthest the gripper goes from the base
 SIDE = math.radians(55)  # the furthest the base turns left or right
 MAX_SPEED = 1.5          # rad/s: fastest any joint moves while following the hand
 MAX_GLIDE = 250.0        # mm/s: fastest the gripper slides across the table
+CARRY_GLIDE = 150.0      # mm/s: the same while carrying something (games slow it down)
 WHACK_TIME = 0.30        # seconds down, and the same back up
 GRAB_HEIGHT = 15.0       # mm: fingertips this high to grab a ball off the table
 RELEASE_HEIGHT = 40.0    # mm: fingertips this high to let go of a ball
@@ -37,10 +38,11 @@ LAG = 0.12               # seconds the pretend arm trails behind (like the real 
 def area_to_point(u, v):
     """Play-area position to a point on the table in front of Robo (x, y in mm).
 
-    Robo faces the player, so the player's right (u = 1) is Robo's left (+y), and the
-    top of the screen (v = 0) is near Robo, the bottom (v = 1) near the player."""
+    Robo faces the player, so the player's right (u = 1) is Robo's left (+y). Hand up
+    (v = 0) brings the gripper toward the player (far from the base); hand down
+    (v = 1) sends it back toward Robo."""
     angle = (u - 0.5) * 2 * SIDE
-    reach = NEAR + v * (FAR - NEAR)
+    reach = FAR - v * (FAR - NEAR)
     return arm.BASE_X + reach * math.cos(angle), reach * math.sin(angle)
 
 
@@ -48,7 +50,7 @@ def point_to_area(x, y):
     """The opposite of area_to_point (for drawing where the gripper is)."""
     reach = math.hypot(x - arm.BASE_X, y)
     angle = math.atan2(y, x - arm.BASE_X)
-    return 0.5 + angle / (2 * SIDE), (reach - NEAR) / (FAR - NEAR)
+    return 0.5 + angle / (2 * SIDE), (FAR - reach) / (FAR - NEAR)
 
 
 def limit_step(start, goal, seconds):
@@ -64,6 +66,7 @@ class ArmBase:
         self.touch_height = touch_height
         self.command = None          # joint angles last sent
         self.aim = None              # the point (x, y mm) the gripper is sliding to
+        self.glide = MAX_GLIDE       # mm/s: the sliding speed right now
         self.whack_started = None    # time the current whack began, or None
         self.whack_spot = None       # where the gripper was when it whacked (x, y)
         self.whack_checked = True    # the current whack has been checked for a hit
@@ -92,7 +95,7 @@ class ArmBase:
             self.aim = arm.forward(self.command)[:2]
         gx, gy = area_to_point(u, v)
         distance = math.hypot(gx - self.aim[0], gy - self.aim[1])
-        share = min(1.0, MAX_GLIDE * seconds / distance) if distance > 0 else 1.0
+        share = min(1.0, self.glide * seconds / distance) if distance > 0 else 1.0
         # ... and no joint faster than MAX_SPEED: if a joint would have to (the base,
         # moving sideways close to it), take a shorter step instead, so all the joints
         # stay in step and the gripper stays level
@@ -149,6 +152,11 @@ class ArmBase:
                       (now + 0.5 + GRIPPER_WAIT, lambda: self.send([up], [0.45]))]
         self.busy_until = now + 1.0 + GRIPPER_WAIT
         return True
+
+    def open_here(self):
+        """Open the gripper right where it is (the prize drops from there)."""
+        self.steps = []
+        self.set_gripper(False)
 
     def run_steps(self):
         """Do the grab/release steps that are due (call every frame)."""

@@ -931,17 +931,25 @@ If the gripper misses the balls or touches the table, change `GRAB_HEIGHT` (defa
 
 ### Chocolate Catcher (game)
 
-A **claw machine** (crane game) with Robo as the claw. It uses the same camera on a stand as the other games (facing the player).
+A **claw machine** with Robo as the claw. **You only win the chocolates you get into the basket.** It uses the same camera on a stand as the other games (facing the player).
 
-1. Steer the claw with your hand over a chocolate. You have **20 seconds** each try.
-2. **Make a fist** (or press Enter): the claw drops, grabs, and comes back up. If the 20 seconds run out, it drops anyway.
-3. Robo carries the prize to the **prize chute** by itself and lets go.
-4. **Still holding it at the chute? You win it!** Like a real claw machine, a prize can slip out on the way.
-5. **3 tries** per player. The most prizes wins (then the fastest aiming). A How to play screen shows these steps before every game.
+| You do | Robo does |
+|---|---|
+| Move your hand left / right | the claw moves left / right |
+| Move your hand up / down | the claw moves toward you / away from you |
+| Make a fist | the claw goes down, grabs, and comes back up at the same spot |
+| Keep the fist (and move) | the claw stays closed, holding the chocolate, and follows your hand |
+| Open your hand | the claw opens and the chocolate drops |
 
-Robo checks every win itself: the gripper must still be holding the prize when it reaches the chute (a prize stops the fingers partway; empty, they close all the way).
+- **The timer starts when you grab a chocolate:** you have **10 seconds** to get it over the **basket** and open your hand. While carrying, the claw moves a bit slower (150 mm/s instead of 250).
+- If the time runs out, the claw **opens by itself** and the chocolate drops where it is.
+- A chocolate counts only if it's dropped **over the basket**. **5 grabs** per player; the most chocolates wins.
+- Robo checks it all itself: holding (a chocolate stops the gripper fingers partway; empty, they close all the way) and where the claw is when it opens.
+- The fist has to be steady for 2 camera pictures before it counts (open again the same way), so one odd picture can't grab or drop by mistake.
 
-Set up: put a box or bowl on the table at the **right edge of Robo's reach, level with the middle** (the prize chute; the screen shows where), and the prizes anywhere else in reach. **Wrapped chocolate balls or small soft toys, about 25 to 45 mm**, work best; flat chocolate bars are too thin to grab.
+The screen shows the camera with your hand, its middle point, the play frame, the basket and the claw; and on the side the chocolates won, the grabs left, the carry timer and the controls. A How to play screen comes before every game.
+
+Set up: put a box or bowl on the table where the screen shows the BASKET (on the right, toward you), and the chocolates anywhere else in reach (within about 220 mm of the base). **Wrapped chocolate balls or small soft toys, about 25 to 45 mm**, work best; flat chocolate bars are too thin to grab.
 
 Try it without the robot, then play:
 
@@ -953,7 +961,7 @@ Try it without the robot, then play:
 ~/Documents/Open_manipulator_x/launch/game.sh --claw --fullscreen
 ```
 
-`--keyboard`: `W` `A` `S` `D` move the claw, `Enter` or `Space` drops it. `--sim` uses the simulated arm. The tries, the aiming time and where the chute is (`CHUTE`) are at the top of `game/claw_machine.py`.
+`--keyboard`: `W` `A` `S` `D` move the claw (`W` toward you), `Space` is the fist (press once to grab and hold, again to drop). `--sim` uses the simulated arm. The grabs, the carry time and the basket position (`BASKET`) are at the top of `game/claw_machine.py`.
 
 ### Get the latest code
 

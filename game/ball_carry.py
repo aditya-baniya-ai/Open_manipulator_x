@@ -58,14 +58,15 @@ def board_order(entry):
 
 
 def to_map(u, v):
-    """Play-area position to a point on the table map (Robo at the top)."""
+    """Play-area position to a point on the table map. Robo at the bottom, the player's
+    side at the top: the gripper moves on the map the same way as the hand."""
     left, top, right, bottom = MAP_BOX
     scale = min((right - left - 60) / (2 * arm_link.FAR * math.sin(arm_link.SIDE)),
-                (bottom - top - 200) / arm_link.FAR)
-    reach = arm_link.NEAR + v * (arm_link.FAR - arm_link.NEAR)
+                (bottom - top - 220) / arm_link.FAR)
+    reach = arm_link.FAR - v * (arm_link.FAR - arm_link.NEAR)
     angle = (u - 0.5) * 2 * arm_link.SIDE
     return (int((left + right) / 2 + reach * math.sin(angle) * scale),
-            int(top + 70 + reach * math.cos(angle) * scale))
+            int(bottom - 130 - reach * math.cos(angle) * scale))
 
 
 class VirtualBalls:
@@ -333,10 +334,10 @@ class Game:
             points = [to_map(u0 + (u1 - u0) * i / 10, 0) for i in range(11)] + \
                      [to_map(u1 - (u1 - u0) * i / 10, 1) for i in range(11)]
             cv2.fillPoly(canvas, [np.array(points)], color, cv2.LINE_AA)
-            spot = to_map((u0 + u1) / 2, 1.12)
+            spot = to_map((u0 + u1) / 2, -0.12)
             t.add(label, spot[0], spot[1], 16, GREEN if label == "DROP" else INK, "mm")
         cv2.line(canvas, to_map(MIDDLE, -0.05), to_map(MIDDLE, 1.05), GOLD, 2, cv2.LINE_AA)
-        base = ((left + right) // 2, top + 70)
+        base = ((left + right) // 2, bottom - 130)
         cv2.circle(canvas, base, 22, (90, 70, 80), -1, cv2.LINE_AA)
         t.add("ROBO", base[0], base[1], 13, INK, "mm")
         if self.pretend:                                    # pretend balls (--no-arm)

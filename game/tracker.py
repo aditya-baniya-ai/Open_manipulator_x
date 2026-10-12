@@ -33,6 +33,12 @@ import cv2
 PLAY_AREA = (0.15, 0.10, 0.85, 0.80)   # left, top, right, bottom
 TRACK_WIDTH = 320                      # pixels: picture size used for tracking
 
+# Fist: every fingertip close to the middle of the palm (measured as a share of the
+# palm's size, so it works near or far from the camera, and with the hand turned).
+FIST_BELOW = 0.75        # all 4 fingertips closer than this: a fist
+OPEN_ABOVE = 0.95        # 2 or more fingertips further than this: open again
+STEADY_FRAMES = 2        # a change must be seen this many pictures in a row
+
 
 @dataclass
 class Hand:
@@ -60,9 +66,8 @@ def shrink(frame):
 
 class MediaPipeHands:
     name = "mediapipe"
-    # Fingertip and the joint below it, for index, middle, ring and little finger
-    FINGERS = [(8, 6), (12, 10), (16, 14), (20, 18)]
-    PALM = [0, 5, 9, 17]
+    TIPS = [8, 12, 16, 20]              # index, middle, ring and little fingertips
+    PALM = [0, 5, 9, 17]                # wrist and the knuckles: the middle of the palm
 
     def __init__(self):
         import mediapipe as mp
@@ -74,6 +79,7 @@ class MediaPipeHands:
             min_detection_confidence=0.6,
             min_tracking_confidence=0.5)
         self.lines = list(mp.solutions.hands.HAND_CONNECTIONS)
+        self.fist, self.changing = False, 0     # the steady fist state
 
     def track(self, frame):
         """frame: the mirrored camera picture (BGR)."""
@@ -85,15 +91,24 @@ class MediaPipeHands:
         height, width = frame.shape[:2]
         points = [(m.x * width, m.y * height) for m in marks]
 
-        def dist(a, b):
-            return ((marks[a].x - marks[b].x) ** 2 + (marks[a].y - marks[b].y) ** 2) ** 0.5
-        # A finger is folded when its tip is closer to the wrist than its middle joint.
-        # A fist folds all four (pointing folds only three, so it doesn't count)
-        folded = sum(dist(tip, 0) < dist(joint, 0) for tip, joint in self.FINGERS)
         cx = sum(marks[i].x for i in self.PALM) / len(self.PALM)
         cy = sum(marks[i].y for i in self.PALM) / len(self.PALM)
+        size = max(1e-6, ((marks[0].x - marks[9].x) ** 2 + (marks[0].y - marks[9].y) ** 2) ** 0.5)
+        reach = [((marks[t].x - cx) ** 2 + (marks[t].y - cy) ** 2) ** 0.5 / size for t in self.TIPS]
+        # Two thresholds with a gap between them, so it doesn't flicker
+        if self.fist:
+            looks_like_fist = sum(r > OPEN_ABOVE for r in reach) < 2
+        else:
+            looks_like_fist = max(reach) < FIST_BELOW      # pointing or peace sign: no
+        # ... and a change only counts once it's steady (one odd picture can't drop a prize)
+        if looks_like_fist != self.fist:
+            self.changing += 1
+            if self.changing >= STEADY_FRAMES:
+                self.fist, self.changing = looks_like_fist, 0
+        else:
+            self.changing = 0
         x, y = to_play_area(cx, cy)
-        return Hand(x, y, folded == 4, points, self.lines)
+        return Hand(x, y, self.fist, points, self.lines)
 
 
 class YoloPose:
