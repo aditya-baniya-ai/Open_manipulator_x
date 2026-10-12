@@ -31,7 +31,7 @@ MUSIC_VOLUME = 0.30
 MUSIC_UNDER_TIMER = 0.12   # quieter music while the timer ticks
 
 
-EFFECTS = ["grab", "score", "drop", "fail", "buzzer", "beep", "go", "fanfare", "lose"]
+EFFECTS = ["grab", "pop", "score", "drop", "fail", "buzzer", "beep", "go", "fanfare", "lose"]
 
 
 # --- Making the sounds ---------------------------------------------------------------
@@ -124,6 +124,9 @@ def effects():
     sounds = {
         # The claw goes down to grab: a quick rising bloop
         "grab": tone(300, 0.18, "square", 0.45, slide_to=900),
+        # A life used: a balloon pop (a burst of noise and a quick squeak)
+        "pop": together(tone(0, 0.06, "noise", 0.9),
+                        tone(700, 0.09, "sine", 0.5, slide_to=1500)),
         # A chocolate in the basket: happy arpeggio with a sparkle
         "score": together(sequence([("C5", 1), ("E5", 1), ("G5", 1), ("C6", 3)], beat, "square", 0.5),
                           np.concatenate([np.zeros(int(RATE * 0.27), np.float32),

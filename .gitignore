@@ -16,3 +16,4 @@ __pycache__/
 game/leaderboard.json
 game/ball_leaderboard.json
 game/claw_leaderboard.json
+game/claw_setup.json

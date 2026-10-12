@@ -945,9 +945,9 @@ A **claw machine** with Robo as the claw. **You only win the chocolates you get 
 | Keep the fist (and move) | the claw stays closed, holding the chocolate, and follows your hand |
 | Open your hand | the claw opens and the chocolate drops |
 
-- **The timer starts when you grab a chocolate:** you have **10 seconds** to get it over the **basket** and open your hand. While carrying, the claw moves a bit slower (150 mm/s instead of 250).
+- **5 lives, shown as hearts.** **Every fist uses one** (even a fist by mistake, over the basket or anywhere) and **starts the timer** right then: you have **10 seconds** to get the chocolate over the **basket** and open your hand. The used heart pops like a balloon. While carrying, the claw moves a bit slower (150 mm/s instead of 250).
 - The claw **only opens when you open your hand**, never by itself, even if it seems empty (a small chocolate can feel like nothing to the gripper). The one exception: if the time runs out, it opens and the chocolate drops where it is.
-- A chocolate counts only if it's dropped **over the basket**. **5 grabs** per player; the most chocolates wins.
+- A chocolate counts only if it's dropped **over the basket** (the green square on the screen). The most chocolates wins.
 - Robo checks it all itself when the claw opens: was it holding something (a chocolate stops the gripper fingers partway; empty, they close all the way), and is it over the basket.
 - The fist has to be steady for 2 camera pictures before it counts (open again the same way), so one odd picture can't grab or drop by mistake.
 
@@ -955,7 +955,7 @@ A **claw machine** with Robo as the claw. **You only win the chocolates you get 
 
 The screen shows the camera with your hand, its middle point, the play frame, the basket and the claw; and on the side the chocolates won, the grabs left, the carry timer and the controls. A How to play screen comes before every game.
 
-Set up: put a box or bowl on the table where the screen shows the BASKET (on the right, toward you), and the chocolates anywhere else in reach (80 to 220 mm from the base, up to about 75 degrees to each side). **Wrapped chocolate balls or small soft toys, about 25 to 45 mm**, work best; flat chocolate bars are too thin to grab.
+Set up: put a box or bowl on the table, then **tell the game where it is: move the claw over it and press Tab** (any time; it's saved in `game/claw_setup.json` and remembered from then on). Put the chocolates anywhere else in reach (80 to 220 mm from the base, up to about 75 degrees to each side). **Wrapped chocolate balls or small soft toys, about 25 to 45 mm**, work best; flat chocolate bars are too thin to grab.
 
 Try it without the robot, then play:
 
