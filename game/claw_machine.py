@@ -8,6 +8,8 @@ you get into the basket.
     Keep the fist           the claw stays closed and holds the chocolate while you move
     Open your hand          the claw opens and the chocolate drops
 
+The claw only opens when you open your hand (or the time runs out): never by itself.
+
 The moment you grab a chocolate, a timer starts: get it to the BASKET and open your
 hand before the time runs out. While it's carrying, the claw moves a bit slower. If the
 time runs out, the claw opens by itself and the chocolate drops where it is.
@@ -187,21 +189,20 @@ class Game:
             if not self.robot.busy():            # back up at the same spot
                 if not fist:
                     self.drop("opened")          # let go during the grab
-                elif self.robot.holding():
+                else:
+                    # Keep the claw closed as long as the fist is (even if the gripper
+                    # seems empty: a small chocolate can feel like nothing). Whether
+                    # there's really one in it is checked when the hand opens.
                     r["phase"], r["carry_started"] = "carry", time.monotonic()
                     self.robot.glide = arm_link.CARRY_GLIDE     # a bit slower now
                     self.say("Got it! To the basket!")
                     self.sound.timer(1.0)                       # the ticking starts
-                else:
-                    self.drop("empty")
         elif r["phase"] == "carry":
             self.sound.timer(self.carry_left() / CARRY_TIME)   # ticks faster as time runs out
             if not fist:
                 self.drop("opened")
             elif self.carry_left() <= 0:
                 self.drop("time")
-            elif not self.robot.holding():
-                self.drop("slipped")
         elif r["phase"] == "dropping":
             if time.monotonic() - r["phase_at"] > arm_link.GRIPPER_WAIT:
                 if r["grabs"] >= TRIES:

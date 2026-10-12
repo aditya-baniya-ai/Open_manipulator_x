@@ -21,8 +21,9 @@ import arm  # noqa: E402  (also makes ../gestures importable)
 
 HOVER_HEIGHT = 60.0      # mm: fingertips this high while moving around
 TOUCH_HEIGHT = 20.0      # mm: fingertips this high at the bottom of a whack
-NEAR, FAR = 90.0, 220.0   # mm: closest and farthest the gripper goes from the base
-SIDE = math.radians(55)  # the furthest the base turns left or right
+NEAR, FAR = 80.0, 220.0   # mm: closest and farthest the gripper goes from the base
+                          # (it can reach 60-227 mm at every height the games use)
+SIDE = math.radians(75)  # the furthest the base turns left or right
 MAX_SPEED = 1.5          # rad/s: fastest any joint moves while following the hand
 MAX_GLIDE = 250.0        # mm/s: fastest the gripper slides across the table
 CARRY_GLIDE = 150.0      # mm/s: the same while carrying something (games slow it down)

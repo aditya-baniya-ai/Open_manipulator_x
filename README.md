@@ -899,7 +899,7 @@ Safety: the player stands back behind a line, not within the arm's reach. The ar
 
 Move Robo with your hand and carry all **5 balls** from the left side of the table to the right side, as fast as you can. **Fastest time wins.** It uses the same camera on a stand as Puppet Master (facing the player); nothing else.
 
-- Put 5 balls (ping-pong size, about 40 mm) on the **left** side of the table, within Robo's reach: closer than about 220 mm to the base and not more than about 55 degrees to the side.
+- Put 5 balls (ping-pong size, about 40 mm) on the **left** side of the table, within Robo's reach: 80 to 220 mm from the base, and not more than about 75 degrees to the side.
 - Move your hand: Robo follows, gliding level at 60 mm so a carried ball doesn't knock the others.
 - **Close your hand** (fist): Robo goes down and grabs. Move over to the **right** side and **open your hand**: Robo lets go.
 - The stopwatch stops when the 5th ball is across. `P` pauses and restarts it. The round ends anyway after 2 minutes.
@@ -946,16 +946,16 @@ A **claw machine** with Robo as the claw. **You only win the chocolates you get 
 | Open your hand | the claw opens and the chocolate drops |
 
 - **The timer starts when you grab a chocolate:** you have **10 seconds** to get it over the **basket** and open your hand. While carrying, the claw moves a bit slower (150 mm/s instead of 250).
-- If the time runs out, the claw **opens by itself** and the chocolate drops where it is.
+- The claw **only opens when you open your hand**, never by itself, even if it seems empty (a small chocolate can feel like nothing to the gripper). The one exception: if the time runs out, it opens and the chocolate drops where it is.
 - A chocolate counts only if it's dropped **over the basket**. **5 grabs** per player; the most chocolates wins.
-- Robo checks it all itself: holding (a chocolate stops the gripper fingers partway; empty, they close all the way) and where the claw is when it opens.
+- Robo checks it all itself when the claw opens: was it holding something (a chocolate stops the gripper fingers partway; empty, they close all the way), and is it over the basket.
 - The fist has to be steady for 2 camera pictures before it counts (open again the same way), so one odd picture can't grab or drop by mistake.
 
 **Sounds** (on the USB speaker): bouncy background music; beeps for 3-2-1-GO; a "bloop" when the claw drops; while you carry a chocolate, a **ticking timer that speeds up** (with a heartbeat near the end) while the music gets quieter; a happy jingle in the basket; a cartoon "womp" when it drops outside; the sad trombone for an empty claw or time's up (with a buzzer); and a fanfare (or a sad trombone) at the end. They're all made in code (`game/sound.py`), so there's nothing to download. To hear them all once: `cd ~/Documents/Open_manipulator_x/game && python3 sound.py`. If the speaker isn't there, the game just plays silently. `--no-sound` (or unticking "Music and sound effects" in the Games tab) turns them off.
 
 The screen shows the camera with your hand, its middle point, the play frame, the basket and the claw; and on the side the chocolates won, the grabs left, the carry timer and the controls. A How to play screen comes before every game.
 
-Set up: put a box or bowl on the table where the screen shows the BASKET (on the right, toward you), and the chocolates anywhere else in reach (within about 220 mm of the base). **Wrapped chocolate balls or small soft toys, about 25 to 45 mm**, work best; flat chocolate bars are too thin to grab.
+Set up: put a box or bowl on the table where the screen shows the BASKET (on the right, toward you), and the chocolates anywhere else in reach (80 to 220 mm from the base, up to about 75 degrees to each side). **Wrapped chocolate balls or small soft toys, about 25 to 45 mm**, work best; flat chocolate bars are too thin to grab.
 
 Try it without the robot, then play:
 
