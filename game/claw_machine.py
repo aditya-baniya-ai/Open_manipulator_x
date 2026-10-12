@@ -11,12 +11,13 @@ you get into the basket.
 The claw only opens when you open your hand (or the time runs out): never by itself.
 
 You have 5 lives (hearts): every fist uses one, even a fist by mistake, and starts the
-timer: get the chocolate to the BASKET and open your hand before the time runs out. While it's carrying, the claw moves a bit slower. If the
-time runs out, the claw opens by itself and the chocolate drops where it is.
-A chocolate counts only if it's dropped over the basket.
+timer: get the chocolate to the BASKET and open your hand before the time runs out. While
+it's carrying, the claw moves a bit slower. If the time runs out, the claw opens by itself
+and the chocolate drops where it is. The whole game lasts 2 minutes (or 5 lives).
 
-Robo checks everything itself: "holding" means a chocolate stopped the gripper fingers
-partway (empty, they close all the way), and the basket is a spot it knows.
+In the basket: open your hand while its middle point (the yellow dot) is inside the green
+BASKET square. The claw then finishes moving there (it trails the hand a little) and
+opens over the basket.
 
     python3 claw_machine.py --no-arm       no robot: a pretend claw and pretend prizes
     python3 claw_machine.py                with Robo's arm (real or simulated) running
@@ -52,6 +53,7 @@ LEADERBOARD = Path(__file__).with_name("claw_leaderboard.json")
 SETUP_FILE = Path(__file__).with_name("claw_setup.json")   # where the basket is (Tab)
 LIVES = 5                 # every fist uses one life
 CARRY_TIME = 10.0         # seconds from the fist to dropping it in the basket
+GAME_TIME = 120.0         # seconds for the whole game (or until the lives run out)
 BASKET = (0.9, 0.35)      # where the basket is (play-area position); Tab moves it
 BASKET_SIZE = 0.28        # the basket: a square this wide (play-area units)
 POP_TIME = 0.7            # seconds a heart takes to pop
@@ -107,15 +109,15 @@ def how_to_play(keyboard):
         return [("W A S D move the claw", "A / D: left and right.  W / S: toward you and away."),
                 ("Space: grab (uses a life)", "The claw goes down, grabs, and comes back up."),
                 ("Carry it to the BASKET", f"The timer starts at the grab: {CARRY_TIME:.0f} s."),
-                ("Space again: drop it", "Over the basket? It's yours!"),
+                ("Space again: drop it", "Dot inside the BASKET square? It's yours!"),
                 (f"{LIVES} lives", "Every grab pops a heart. Only chocolates in the basket count.")]
     return [("Move your hand: the claw follows", "Left / right, and up = toward you, "
              "down = away from you."),
             ("Make a fist: GRAB (uses a life)", "Every fist pops a heart and starts the timer."),
             ("Keep the fist and carry it", f"You have {CARRY_TIME:.0f} seconds to reach "
              "the BASKET. The claw moves a bit slower."),
-            ("Open your hand: DROP", "Over the basket? It's yours! Time up? It drops."),
-            (f"{LIVES} lives", "Only chocolates dropped in the basket count.")]
+            ("Open your hand over the BASKET", "Yellow dot inside the green square? It's yours!"),
+            (f"{LIVES} lives, 2 minutes", "The game ends when either runs out.")]
 
 
 class Game:
@@ -158,24 +160,46 @@ class Game:
     # -- a round: aim -> grab -> carry -> drop, once per life ----------------------------
     def new_round(self):
         self.round = {"won": 0, "grabs": 0, "phase": "aim", "carry_started": None, "pops": [],
+                      "started": time.monotonic(), "point": None, "target": None,
                       "results": [], "carry_times": [], "was_fist": True}
 
     def carry_left(self):
         r = self.round
-        if not r or r["phase"] not in ("grab", "carry"):
+        if not r or r["phase"] not in ("grab", "carry", "to_basket"):
             return CARRY_TIME
         return max(0.0, CARRY_TIME - (time.monotonic() - r["carry_started"]))
 
-    def over_basket(self):
-        u, v, _ = self.robot.gripper_area()
+    def hand_in_basket(self, point, share=1.0):
+        """Is this play-area point (the middle of the hand, or the claw) inside the basket
+        square? share < 1: inside a smaller square in its middle (safely inside)."""
         bu, bv = self.basket
-        return abs(u - bu) <= BASKET_SIZE / 2 and abs(v - bv) <= BASKET_SIZE / 2
+        half = BASKET_SIZE / 2 * share
+        return abs(point[0] - bu) <= half and abs(point[1] - bv) <= half
+
+    def game_left(self):
+        r = self.round
+        return max(0.0, GAME_TIME - (time.monotonic() - r["started"])) if r else GAME_TIME
+
+    def let_go(self):
+        """The hand opened. Its middle point inside the basket square: the claw first
+        finishes moving there (it trails the hand a little), then opens: a win.
+        Anywhere else: it opens right away."""
+        r = self.round
+        if r["point"] is not None and self.hand_in_basket(r["point"]):
+            # Aim for where the hand opened, nudged safely inside the square (not on its rim)
+            bu, bv = self.basket
+            half = BASKET_SIZE / 2 * 0.6
+            target = (min(bu + half, max(bu - half, r["point"][0])),
+                      min(bv + half, max(bv - half, r["point"][1])))
+            r["phase"], r["phase_at"], r["target"] = "to_basket", time.monotonic(), target
+            self.robot.glide = arm_link.MAX_GLIDE       # catch up at the normal speed
+        else:
+            self.drop("opened")
 
     def drop(self, why):
-        """Open the claw where it is: the try is over. A win if it's over the basket."""
+        """Open the claw where it is: the try is over. why "basket" is a win."""
         r = self.round
-        holding = self.robot.holding()
-        won = holding and self.over_basket()
+        won = why == "basket"
         held = getattr(self.robot, "held", None)
         self.robot.open_here()
         self.robot.glide = arm_link.MAX_GLIDE
@@ -183,7 +207,7 @@ class Game:
         r["results"].append(won)
         if won:
             r["won"] += 1
-            r["carry_times"].append(CARRY_TIME - self.carry_left())
+            r["carry_times"].append(time.monotonic() - r["carry_started"])
             self.say("IN THE BASKET! It's yours!")
             self.sound.play("score")
             if self.pretend and held is not None:
@@ -193,12 +217,12 @@ class Game:
             self.say("Time's up! The claw opened", good=False)
             self.sound.play("buzzer")
             self.sound.play("fail")
-        elif holding:
-            self.say("Dropped outside the basket", good=False)
-            self.sound.play("drop")
+        elif why == "game over":
+            self.say("Game over! The claw opened", good=False)
+            self.sound.play("buzzer")
         else:
-            self.say("Nothing in the claw", good=False)
-            self.sound.play("fail")
+            self.say("Not in the basket", good=False)
+            self.sound.play("drop")
         r["phase"], r["phase_at"] = "dropping", time.monotonic()
 
     def play(self):
@@ -206,11 +230,23 @@ class Game:
         seen = self.control()
         if seen:
             u, v, fist = seen
-            self.robot.follow(u, v)              # ignored while grabbing (busy)
+            r["point"] = (u, v)                  # where the middle of the hand is
+            if r["phase"] != "to_basket":
+                self.robot.follow(u, v)          # ignored while grabbing (busy)
         else:
             fist = r["was_fist"]                 # hand lost: keep the last state
         started_fist = fist and not r["was_fist"]
         r["was_fist"] = fist
+
+        # The whole game lasts GAME_TIME: when it's up, the claw lets go and it's over
+        if self.game_left() <= 0 and r["phase"] != "dropping" and not self.robot.busy():
+            if r["phase"] == "aim":
+                self.finish()
+                return
+            if r["phase"] in ("grab", "carry"):
+                self.drop("game over")
+                r["grabs"] = LIVES               # nothing left to play after this
+                return
 
         if r["phase"] == "aim":
             if started_fist and r["grabs"] < LIVES and self.robot.grab():
@@ -225,23 +261,29 @@ class Game:
             self.sound.timer(self.carry_left() / CARRY_TIME)
             if not self.robot.busy():            # back up at the same spot
                 if not fist:
-                    self.drop("opened")          # let go during the grab
+                    self.let_go()                # opened during the grab
                 else:
-                    # Keep the claw closed as long as the fist is (even if the gripper
-                    # seems empty: a small chocolate can feel like nothing). Whether
-                    # there's really one in it is checked when the hand opens.
                     r["phase"] = "carry"                        # the timer keeps going
                     self.robot.glide = arm_link.CARRY_GLIDE     # a bit slower now
                     self.say("Got it! To the basket!")
         elif r["phase"] == "carry":
             self.sound.timer(self.carry_left() / CARRY_TIME)   # ticks faster as time runs out
             if not fist:
-                self.drop("opened")
+                self.let_go()
             elif self.carry_left() <= 0:
                 self.drop("time")
+        elif r["phase"] == "to_basket":
+            # Finish moving to where the hand opened, and open as soon as the claw is
+            # really over the basket (so the score matches where the prize lands)
+            self.robot.follow(*r["target"])
+            u, v, _ = self.robot.gripper_area()
+            if self.hand_in_basket((u, v), share=0.8):
+                self.drop("basket")
+            elif time.monotonic() - r["phase_at"] > 6.0:
+                self.drop("opened")              # couldn't get there: not in the basket
         elif r["phase"] == "dropping":
             if time.monotonic() - r["phase_at"] > arm_link.GRIPPER_WAIT:
-                if r["grabs"] >= LIVES:
+                if r["grabs"] >= LIVES or self.game_left() <= 0:
                     self.finish()
                 else:
                     r["phase"] = "aim"
@@ -343,6 +385,11 @@ class Game:
         t.add("CHOCOLATE", 30, 20, 34, GOLD)
         t.add("CATCHER", 30 + t.width("CHOCOLATE ", 34), 20, 34, CYAN)
         t.add("grab it, carry it, drop it in the basket", 32, 62, 15, DIM)
+        r = self.round if self.state in ("play", "results") else None
+        left = self.game_left() if r else GAME_TIME
+        t.add(f"{int(left) // 60}:{int(left) % 60:02d}", W // 2 + 60, 38, 40,
+              RED if left < 20 else INK, "mm")
+        t.add("GAME TIME", W // 2 + 60, 72, 13, DIM, "mm")
         best = self.board[0] if self.board else None
         t.add("BEST", W - 30, 18, 14, DIM, "ra")
         t.add(f"{best['name'][:10]}  {plural(best['prizes'], 'chocolate')}" if best else "-",
@@ -382,12 +429,16 @@ class Game:
         half = BASKET_SIZE / 2
         corner1 = self.area_to_view(bu - half, bv - half)
         corner2 = self.area_to_view(bu + half, bv + half)
-        holding_now = self.robot.holding() if self.robot.command is not None else False
+        r = self.round if self.state == "play" else None
+        dot_inside = bool(r and r["point"] and self.hand_in_basket(r["point"]))
         overlay = canvas.copy()
-        cv2.rectangle(overlay, corner1, corner2, (40, 110, 40), -1)
-        cv2.addWeighted(overlay, 0.35, canvas, 0.65, 0, canvas)
-        cv2.rectangle(canvas, corner1, corner2, GREEN if holding_now else (60, 160, 60), 3,
-                      cv2.LINE_AA)
+        cv2.rectangle(overlay, corner1, corner2, (60, 170, 60) if dot_inside else (40, 110, 40),
+                      -1)
+        cv2.addWeighted(overlay, 0.45 if dot_inside else 0.35, canvas,
+                        0.55 if dot_inside else 0.65, 0, canvas)
+        cv2.rectangle(canvas, corner1, corner2, GREEN if dot_inside else (60, 160, 60),
+                      5 if dot_inside else 3, cv2.LINE_AA)
+        holding_now = self.robot.closed
         middle = ((corner1[0] + corner2[0]) // 2, (corner1[1] + corner2[1]) // 2)
         self.text.add("BASKET", middle[0], middle[1], 20, GREEN, "mm")
         # Where the claw is now (cross-hair; filled when holding a chocolate)
@@ -464,7 +515,7 @@ class Game:
         # The carry timer
         cv2.line(canvas, (left + 25, top + 215), (right - 25, top + 215), (90, 60, 70), 1)
         ring = (mid, top + 320)
-        if r and self.state == "play" and r["phase"] in ("grab", "carry"):
+        if r and self.state == "play" and r["phase"] in ("grab", "carry", "to_basket"):
             remaining = self.carry_left()
             color = RED if remaining < 3 else GOLD
             cv2.ellipse(canvas, ring, (78, 78), -90, 0, 360, (70, 50, 60), 10, cv2.LINE_AA)
@@ -507,8 +558,8 @@ class Game:
             t.add("CHOCOLATE CATCHER", mid, 130, 64, GOLD, "mm")
             t.add("Grab a chocolate with Robo's claw and drop it in the basket. "
                   "Keep what you catch!", mid, 195, 20, INK, "mm")
-            t.add(f"{LIVES} lives: every fist uses one. {CARRY_TIME:.0f} seconds to reach the "
-                  "basket.",
+            t.add(f"{LIVES} lives, {GAME_TIME / 60:.0f} minutes. Every fist uses a life; "
+                  f"{CARRY_TIME:.0f} seconds to reach the basket.",
                   mid, 225, 17, DIM, "mm")
             t.add("TYPE YOUR NAME", mid, 300, 16, DIM, "mm")
             cursor = "_" if int(time.monotonic() * 2) % 2 else " "
@@ -523,7 +574,7 @@ class Game:
                 t.add("Be the first on the board!", mid, 500, 20, DIM, "mm")
         elif self.state == "howto":
             t.add("HOW TO PLAY", mid, 70, 52, GOLD, "mm")
-            t.add("Only chocolates dropped in the basket count. Robo checks every one.",
+            t.add("Open your hand with the yellow dot inside the green BASKET square to win it.",
                   mid, 120, 17, DIM, "mm")
             for i, (big, small) in enumerate(how_to_play(self.keyboard)):
                 y = 190 + i * 82
