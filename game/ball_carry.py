@@ -46,10 +46,13 @@ KEY_STEP = 0.04           # how far one key press moves Robo (play-area units)
 
 
 def load_board():
+    """The saved top 10. Scores saved by an older version of the game (a different
+    format) are left out."""
     try:
-        return json.loads(LEADERBOARD.read_text())
+        board = json.loads(LEADERBOARD.read_text())
     except (OSError, ValueError):
         return []
+    return [e for e in board if isinstance(e, dict) and all(k in e for k in ("name", "balls", "time"))]
 
 
 def board_order(entry):
