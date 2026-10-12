@@ -19,7 +19,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "brain"))
 import arm  # noqa: E402  (also makes ../gestures importable)
 
-HOVER_HEIGHT = 60.0      # mm: fingertips this high while moving around
+HOVER_HEIGHT = 60.0      # mm: fingertips this high while moving around (a game can
+                         # set its own: robot.hover)
+MAX_TILT = 30            # degrees the gripper may tilt from straight down while gliding
+                         # high up (it can't reach far pointing straight down up there)
 TOUCH_HEIGHT = 20.0      # mm: fingertips this high at the bottom of a whack
 NEAR, FAR = 80.0, 220.0   # mm: closest and farthest the gripper goes from the base
                           # (it can reach 60-227 mm at every height the games use)
@@ -68,6 +71,7 @@ class ArmBase:
         self.command = None          # joint angles last sent
         self.aim = None              # the point (x, y mm) the gripper is sliding to
         self.glide = MAX_GLIDE       # mm/s: the sliding speed right now
+        self.hover = HOVER_HEIGHT    # mm: the gliding height
         self.whack_started = None    # time the current whack began, or None
         self.whack_spot = None       # where the gripper was when it whacked (x, y)
         self.whack_checked = True    # the current whack has been checked for a hit
@@ -79,6 +83,15 @@ class ArmBase:
     def whacking(self):
         return self.whack_started is not None and \
             time.monotonic() - self.whack_started < 2 * WHACK_TIME
+
+    def hover_joints(self, x, y):
+        """Joint angles for gliding over (x, y) at the gliding height: pointing straight
+        down if it can, otherwise tilted a little (up to MAX_TILT), or None."""
+        for tilt in range(0, MAX_TILT + 1, 2):
+            joints, _ = arm.solve(x, y, self.hover, arm.DOWN - math.radians(tilt))
+            if joints is not None:
+                return joints
+        return None
 
     def busy(self):
         """Whacking, grabbing or releasing: the arm doesn't follow the hand meanwhile."""
@@ -104,7 +117,7 @@ class ArmBase:
         for _ in range(4):
             aim = (self.aim[0] + (gx - self.aim[0]) * share,
                    self.aim[1] + (gy - self.aim[1]) * share)
-            goal, _ = arm.solve(*aim, HOVER_HEIGHT)
+            goal = self.hover_joints(*aim)
             if goal is None:
                 return
             fastest = max(abs(g - c) for g, c in zip(goal, self.command)) / max(seconds, 1e-3)
@@ -148,10 +161,12 @@ class ArmBase:
             return False
         now = time.monotonic()
         up = list(self.command)
-        self.send([down], [0.45])
-        self.steps = [(now + 0.5, lambda: self.set_gripper(closed)),
-                      (now + 0.5 + GRIPPER_WAIT, lambda: self.send([up], [0.45]))]
-        self.busy_until = now + 1.0 + GRIPPER_WAIT
+        # Long enough that no joint goes faster than MAX_SPEED (further down = longer)
+        move = max(0.45, max(abs(d - u) for d, u in zip(down, up)) / MAX_SPEED)
+        self.send([down], [move])
+        self.steps = [(now + move + 0.05, lambda: self.set_gripper(closed)),
+                      (now + move + 0.05 + GRIPPER_WAIT, lambda: self.send([up], [move]))]
+        self.busy_until = now + 2 * move + 0.1 + GRIPPER_WAIT
         return True
 
     def open_here(self):
@@ -192,7 +207,7 @@ class VirtualArm(ArmBase):
         self.updated = time.monotonic()
 
     def start(self):
-        goal, _ = arm.solve(*area_to_point(0.5, 0.5), HOVER_HEIGHT)
+        goal = self.hover_joints(*area_to_point(0.5, 0.5))
         self.state = list(goal)
         self.command = list(goal)
         self.updated = time.monotonic()
@@ -247,8 +262,9 @@ class RealArm(ArmBase):
         from gestures import connect
         if not connect(self.node):
             return "the arm isn't ready (see the messages above)"
-        goal, why = arm.solve(*area_to_point(0.5, 0.5), HOVER_HEIGHT)
-        why = why or arm.move_joints_safely(self.node, goal)
+        goal = self.hover_joints(*area_to_point(0.5, 0.5))
+        why = "the middle of the play area can't be reached" if goal is None \
+            else arm.move_joints_safely(self.node, goal)
         if why:
             return why
         self.command = list(goal)

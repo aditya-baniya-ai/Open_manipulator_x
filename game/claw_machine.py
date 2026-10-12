@@ -55,6 +55,8 @@ CARRY_TIME = 10.0         # seconds from the fist to dropping it in the basket
 BASKET = (0.9, 0.35)      # where the basket is (play-area position); Tab moves it
 BASKET_SIZE = 0.28        # the basket: a square this wide (play-area units)
 POP_TIME = 0.7            # seconds a heart takes to pop
+HOVER = 110.0             # mm: the claw glides this high, above the basket's rim
+                          # (a fist still goes straight down to the chocolates)
 SHOW_HAND_FOR = 1.0
 KEY_STEP = 0.04
 CHOCOLATE = (30, 80, 140)            # BGR colour of the prizes
@@ -124,6 +126,7 @@ class Game:
             panel(self.background, box)
         self.robot = arm_link.VirtualArm() if args.no_arm \
             else arm_link.RealArm(ros_args=args.ros_args)
+        self.robot.hover = HOVER
         self.pretend = VirtualBalls(self.robot) if args.no_arm else None
         self.sound = Sound(enabled=not args.no_sound)
         self.basket = load_basket()
