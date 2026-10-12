@@ -347,7 +347,7 @@ The control panel is one window in Texas State maroon and gold, with three tabs:
 
 **Build your own move tab**, a step-by-step builder (see [Make your own gesture](#make-your-own-gesture)). Camera greetings are paused while this tab is open, so a greeting wave never moves the arm away from the pose you're building.
 
-**Games tab**: **Puppet Master**, **Ball Carry** and **Chocolate Catcher** (the rules are in their sections below), each with a Play button, plus two options: control with the keyboard instead of your hand, and full screen. The game opens in its own window; close it (or press Esc) to come back, or click **Stop the game**.
+**Games tab**: **Puppet Master**, **Ball Carry** and **Chocolate Catcher** (the rules are in their sections below), each with a Play button, plus options: control with the keyboard instead of your hand, full screen, and music and sound effects (Chocolate Catcher). A game can start straight away, even while the voice is still getting ready. The game opens in its own window; close it (or press Esc) to come back, or click **Stop the game**.
 
 While a game is running, the panel switches off everything else that uses the camera or the GPU, so the game feels fast: the **camera and detection** stop (the game needs the camera to itself), and the **voice** is unloaded (Whisper and the LLM leave the GPU; the microphone stops). The arm buttons, gestures, greetings and talking are paused, so nothing else moves the arm. When the game ends, it all comes back on by itself: the video returns after detection loads again (about 20 seconds), and the voice gets ready again in the background. The games need MediaPipe; set it up once (step 2 of [Puppet Master](#puppet-master-game)).
 
@@ -951,6 +951,8 @@ A **claw machine** with Robo as the claw. **You only win the chocolates you get 
 - Robo checks it all itself: holding (a chocolate stops the gripper fingers partway; empty, they close all the way) and where the claw is when it opens.
 - The fist has to be steady for 2 camera pictures before it counts (open again the same way), so one odd picture can't grab or drop by mistake.
 
+**Sounds** (on the USB speaker): bouncy background music; beeps for 3-2-1-GO; a "bloop" when the claw drops; while you carry a chocolate, a **ticking timer that speeds up** (with a heartbeat near the end) while the music gets quieter; a happy jingle in the basket; a cartoon "womp" when it drops outside; the sad trombone for an empty claw or time's up (with a buzzer); and a fanfare (or a sad trombone) at the end. They're all made in code (`game/sound.py`), so there's nothing to download. To hear them all once: `cd ~/Documents/Open_manipulator_x/game && python3 sound.py`. If the speaker isn't there, the game just plays silently. `--no-sound` (or unticking "Music and sound effects" in the Games tab) turns them off.
+
 The screen shows the camera with your hand, its middle point, the play frame, the basket and the claw; and on the side the chocolates won, the grabs left, the carry timer and the controls. A How to play screen comes before every game.
 
 Set up: put a box or bowl on the table where the screen shows the BASKET (on the right, toward you), and the chocolates anywhere else in reach (within about 220 mm of the base). **Wrapped chocolate balls or small soft toys, about 25 to 45 mm**, work best; flat chocolate bars are too thin to grab.
@@ -1020,6 +1022,7 @@ game/
   bench_tracking.py    compares the hand trackers' speed
   ball_carry.py        the Ball Carry game: carry the balls across, fastest time wins
   claw_machine.py      the Chocolate Catcher game: a claw machine with Robo as the claw
+  sound.py             the games' music and sound effects (made in code)
 perception/
   detect.py            live object detection from the camera (YOLO / YOLO-World)
 voice/

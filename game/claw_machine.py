@@ -19,6 +19,12 @@ partway (empty, they close all the way), and the basket is a spot it knows.
     python3 claw_machine.py --no-arm       no robot: a pretend claw and pretend prizes
     python3 claw_machine.py                with Robo's arm (real or simulated) running
     python3 claw_machine.py --keyboard     W A S D move the claw, Space = fist on / off
+    python3 claw_machine.py --no-sound     without the music and sound effects
+
+Sounds (made in sound.py, played on the USB speaker): background music, a bloop when the
+claw drops, a ticking timer that speeds up while you carry (the music gets quieter), a
+happy jingle in the basket, a "womp" when it drops outside, the sad trombone for an
+empty claw or time's up, and a fanfare (or a sad trombone) at the end.
 """
 
 import argparse
@@ -32,6 +38,7 @@ import numpy as np
 
 import arm_link
 from ball_carry import VirtualBalls
+from sound import Sound
 from puppet_master import (CYAN, DIM, GOLD, GREEN, H, INK, PINK, RED, Camera, Text, Tracking,
                            W, background, glow_circle, panel)
 from tracker import PLAY_AREA, make_tracker
@@ -89,6 +96,8 @@ class Game:
         self.robot = arm_link.VirtualArm() if args.no_arm \
             else arm_link.RealArm(ros_args=args.ros_args)
         self.pretend = VirtualBalls(self.robot) if args.no_arm else None
+        self.sound = Sound(enabled=not args.no_sound)
+        self.beeps = 0                  # countdown beeps played so far
         self.keyboard = args.keyboard
         if not self.keyboard:
             self.camera = Camera(args.camera)
@@ -136,20 +145,26 @@ class Game:
         held = getattr(self.robot, "held", None)
         self.robot.open_here()
         self.robot.glide = arm_link.MAX_GLIDE
+        self.sound.timer(None)
         r["results"].append(won)
         if won:
             r["won"] += 1
             r["carry_times"].append(CARRY_TIME - self.carry_left())
             self.say("IN THE BASKET! It's yours!")
+            self.sound.play("score")
             if self.pretend and held is not None:
                 self.pretend.balls.pop(held)         # it's in the basket now
                 self.robot.held = None
         elif why == "time":
             self.say("Time's up! The claw opened", good=False)
+            self.sound.play("buzzer")
+            self.sound.play("fail")
         elif holding:
             self.say("Dropped outside the basket", good=False)
+            self.sound.play("drop")
         else:
             self.say("Nothing in the claw", good=False)
+            self.sound.play("fail")
         r["phase"], r["phase_at"] = "dropping", time.monotonic()
 
     def play(self):
@@ -167,6 +182,7 @@ class Game:
             if started_fist and r["grabs"] < TRIES and self.robot.grab():
                 r["grabs"] += 1
                 r["phase"] = "grab"
+                self.sound.play("grab")
         elif r["phase"] == "grab":
             if not self.robot.busy():            # back up at the same spot
                 if not fist:
@@ -175,9 +191,11 @@ class Game:
                     r["phase"], r["carry_started"] = "carry", time.monotonic()
                     self.robot.glide = arm_link.CARRY_GLIDE     # a bit slower now
                     self.say("Got it! To the basket!")
+                    self.sound.timer(1.0)                       # the ticking starts
                 else:
                     self.drop("empty")
         elif r["phase"] == "carry":
+            self.sound.timer(self.carry_left() / CARRY_TIME)   # ticks faster as time runs out
             if not fist:
                 self.drop("opened")
             elif self.carry_left() <= 0:
@@ -199,6 +217,8 @@ class Game:
         self.board.sort(key=lambda e: (-e["prizes"], e["carry"]))
         LEADERBOARD.write_text(json.dumps(self.board[:10], indent=1) + "\n")
         self.state, self.result_at = "results", time.monotonic()
+        self.sound.music(False)
+        self.sound.play("fanfare" if r["won"] else "lose")
 
     # -- each frame -------------------------------------------------------------------
     def step(self):
@@ -215,14 +235,19 @@ class Game:
                 self.hand_since = None
         if self.state == "ready" and (self.keyboard or
                                       (self.hand_since and now - self.hand_since > SHOW_HAND_FOR)):
-            self.state, self.countdown_at = "countdown", now
+            self.state, self.countdown_at, self.beeps = "countdown", now, 0
         elif self.state == "countdown":
+            if self.beeps < 3 and now - self.countdown_at >= self.beeps:   # 3 ... 2 ... 1
+                self.sound.play("beep")
+                self.beeps += 1
             seen = self.control()
             if seen:
                 self.robot.follow(seen[0], seen[1])     # practice moving, no grabbing yet
             if now - self.countdown_at > 3.0:
                 self.state = "play"
                 self.new_round()
+                self.sound.play("go")
+                self.sound.music(True)
                 self.round["was_fist"] = bool(seen and seen[2])
         elif self.state == "play":
             self.play()
@@ -473,6 +498,7 @@ def main():
                         help="the camera facing the player (default /dev/video0)")
     parser.add_argument("--tracker", default="auto", choices=["auto", "mediapipe", "yolo"])
     parser.add_argument("--fullscreen", action="store_true")
+    parser.add_argument("--no-sound", action="store_true", help="no music or sound effects")
     args, args.ros_args = parser.parse_known_args()
 
     try:
@@ -483,6 +509,7 @@ def main():
     why = game.robot.start()
     if why:
         print(f"Can't start the arm: {why}")
+        game.sound.close()
         game.robot.stop()
         return
     cv2.namedWindow("Chocolate Catcher", cv2.WINDOW_NORMAL)
@@ -505,6 +532,7 @@ def main():
         if not game.keyboard:
             game.tracking.close()
             game.camera.close()
+        game.sound.close()
         game.robot.stop()
 
 

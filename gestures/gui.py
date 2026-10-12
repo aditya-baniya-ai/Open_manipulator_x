@@ -669,6 +669,12 @@ class App:
             try:
                 self.robo.load_speech()  # quick: greetings can talk from now on
                 self.robo.load(log=lambda m: self.post(lambda: self.voice_says(m)))
+                if self.game:
+                    # A game started while it was loading: free the GPU for it again
+                    self.robo.unload()
+                    self.post(lambda: self.voice_says("The voice is off while a game is "
+                                                      "running."))
+                    return
                 self.post(self.voice_ready)
             except Exception as error:
                 self.post(lambda e=error: self.voice_says(f"Couldn't start the voice: {e}", True))
@@ -678,6 +684,8 @@ class App:
         threading.Thread(target=load, daemon=True).start()
 
     def voice_ready(self):
+        if self.game:
+            return
         self.voice_says("Voice ready. Click Talk once, or turn Live on.")
         then, self.after_load = self.after_load, None
         if then:
@@ -792,9 +800,11 @@ class App:
         inside.master.pack_configure(fill="x")
         self.game_keyboard = tk.BooleanVar(value=False)
         self.game_fullscreen = tk.BooleanVar(value=False)
+        self.game_sound = tk.BooleanVar(value=True)
         for words, variable in (("Control with the keyboard instead of your hand "
                                  "(W A S D, and Space)", self.game_keyboard),
-                                ("Full screen", self.game_fullscreen)):
+                                ("Full screen", self.game_fullscreen),
+                                ("Music and sound effects (Chocolate Catcher)", self.game_sound)):
             tk.Checkbutton(inside, text=words, variable=variable, font=FONT, bg=CARD,
                            activebackground=CARD, fg=TEXT, selectcolor=CARD).pack(anchor="w")
         row = tk.Frame(inside, bg=CARD)
@@ -812,9 +822,6 @@ class App:
         if self.voice_busy:
             self.say("Stop talking with Robo first (Live off)", error=True)
             return
-        if self.loading:
-            self.say("The voice is still loading: try again in a moment", error=True)
-            return
         if self.moving:
             self.say("Wait for the current move to finish", error=True)
             return
@@ -825,12 +832,17 @@ class App:
         self.game_status.config(text="Switching off the camera, detection and voice ...")
         options = (["--keyboard"] if self.game_keyboard.get() else []) + \
             (["--fullscreen"] if self.game_fullscreen.get() else [])
+        if script == "claw_machine.py" and not self.game_sound.get():
+            options.append("--no-sound")
 
         def free_then_start():
             vision = subprocess.run([VISION, "running"]).returncode == 0
             if vision:
                 subprocess.run([VISION, "stop"], capture_output=True)
-            self.robo.unload()
+            # Still loading? Don't wait: the loading unloads it again as soon as it's
+            # done (see with_voice_loaded), so the game starts right away
+            if not self.loading:
+                self.robo.unload()
             self.post(lambda: self.launch_game(name, script, options, vision))
 
         threading.Thread(target=free_then_start, daemon=True).start()
