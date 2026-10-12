@@ -136,6 +136,16 @@ def ask_llm(model, messages, max_tokens=250):
 SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 
 
+def unload_llm(model):
+    """Take the LLM off the GPU (Ollama loads it again with the next question)."""
+    body = json.dumps({"model": model, "messages": [], "keep_alive": 0}).encode()
+    request = urllib.request.Request(OLLAMA_URL, body, {"Content-Type": "application/json"})
+    try:
+        urllib.request.urlopen(request, timeout=10).read()
+    except Exception:
+        pass  # Ollama isn't running: nothing to unload
+
+
 def stream_llm(model, messages):
     """Send the conversation to Ollama and yield Robo's reply one sentence at a time,
     as soon as each sentence is written."""
@@ -606,6 +616,23 @@ class RoboVoice:
             return None
         match = re.search(r"\[(\d+)%\]", output)
         return int(match.group(1)) if match else None
+
+    def unload(self):
+        """Free the GPU for something else (a game): stop the microphone and unload
+        Whisper and the LLM. load() brings them all back."""
+        self.stop_talking()
+        self.loaded = False
+        if getattr(self, "mic_proc", None) is not None:
+            self.mic_proc.kill()
+            self.mic_proc = None
+        with self.whisper_lock:
+            self.ears = None
+        try:
+            import torch
+            torch.cuda.empty_cache()   # hand Whisper's GPU memory back
+        except Exception:
+            pass
+        unload_llm(self.model)
 
     def close(self):
         self.stop_talking()

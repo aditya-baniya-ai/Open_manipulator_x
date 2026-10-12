@@ -322,7 +322,7 @@ Setup is done.
 
 ### Everything at once (recommended)
 
-One command starts the whole robot: the arm, the camera, person/object detection, and **Robo's control panel**. Turn on the arm's 12 V power, make sure it stands upright, clear the space around it, then:
+One command starts the whole robot: the arm, the camera, person/object detection, and **Robo's control panel**, with everything built so far: gestures, building your own moves, talking with Robo, the camera greeting, and the three games. Turn on the arm's 12 V power, make sure it stands upright, clear the space around it, then:
 
 ```bash
 ~/Documents/Open_manipulator_x/launch/robo.sh
@@ -336,7 +336,7 @@ To use the simulated arm instead (RViz opens):
 
 Other options: `--rviz` (real arm, also shown in RViz), `--no-camera` (no camera or detection), and the detection speed options in [Faster detection](#faster-detection-running-everything-together).
 
-The control panel is one window in Texas State maroon and gold, with two tabs:
+The control panel is one window in Texas State maroon and gold, with three tabs:
 
 **Robo tab** (everyday use), in three columns:
 
@@ -346,6 +346,10 @@ The control panel is one window in Texas State maroon and gold, with two tabs:
 | | **Camera greeting**: when someone new appears, Robo waves and says hello, on its own, without clicking anything (untick to turn it off). It's paused while you're talking with Robo or building a move. | **Speaker volume** `-` / `+` in 5% steps, and a **transcript** with a timing line under each answer. |
 
 **Build your own move tab**, a step-by-step builder (see [Make your own gesture](#make-your-own-gesture)). Camera greetings are paused while this tab is open, so a greeting wave never moves the arm away from the pose you're building.
+
+**Games tab**: **Puppet Master**, **Ball Carry** and **Chocolate Catcher** (the rules are in their sections below), each with a Play button, plus two options: control with the keyboard instead of your hand, and full screen. The game opens in its own window; close it (or press Esc) to come back, or click **Stop the game**.
+
+While a game is running, the panel switches off everything else that uses the camera or the GPU, so the game feels fast: the **camera and detection** stop (the game needs the camera to itself), and the **voice** is unloaded (Whisper and the LLM leave the GPU; the microphone stops). The arm buttons, gestures, greetings and talking are paused, so nothing else moves the arm. When the game ends, it all comes back on by itself: the video returns after detection loads again (about 20 seconds), and the voice gets ready again in the background. The games need MediaPipe; set it up once (step 2 of [Puppet Master](#puppet-master-game)).
 
 Robo **streams** its answers: it starts speaking as soon as the first sentence is written, while the LLM is still writing the rest, and the gesture starts with the first sentence. Under each answer, a grey line shows how long it took, from when you stopped talking: `(heard in 0.7 s · first words after 1.6 s · full answer written after 6.2 s)`.
 
@@ -819,10 +823,10 @@ An arcade game: **your hand controls Robo's arm**. A camera on a stand watches t
 
 A round is 60 seconds and the max score is 9,999. Ranks: S 7,500+, A 5,500+, B 3,500+, C below. The top 10 are kept in `game/leaderboard.json` and shown on the title screen.
 
-**1. Get the game** (it's on its own branch; `git checkout main` goes back to everything else):
+**1. Get the latest code** (the games are part of it). If you tried the games on the `game` branch before, go back to `main` first:
 
 ```bash
-cd ~/Documents/Open_manipulator_x && git fetch && git checkout game && git pull
+cd ~/Documents/Open_manipulator_x && git checkout main && git pull
 ```
 
 **2. Install MediaPipe** (the hand tracker), once. It goes in its own environment, `~/game_venv`, so nothing else on the Jetson changes. Everything already installed (ROS, OpenCV, YOLO) still works inside it.
@@ -1027,6 +1031,7 @@ launch/
   greeter.launch.py    starts the whole greeter robot with one command
   gestures.sh          starts the arm (real or --sim) and the controls (keys, or --gui) together
   robo.sh              starts EVERYTHING: arm, camera, detection and the control panel
+  vision.sh            starts / stops the camera and detection (the panel stops them during games)
   game.sh              starts the arm and a game (Puppet Master, --balls, --claw)
   stop.sh              stops every robot program (use when something is left running)
 dependencies.repos     list of ROBOTIS code to download (used in Step 5)

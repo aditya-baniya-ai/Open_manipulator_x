@@ -17,6 +17,10 @@
 # The arm, camera and detection run in the background (their messages go to log files
 # in /tmp). Closing the control panel (Quit, or Ctrl+C here) stops everything.
 # On the real arm, hold it first: it goes limp.
+#
+# The panel's Games tab starts the games. While a game runs, the panel stops the
+# camera and detection and unloads the voice models, so the game has the camera and
+# the whole GPU; they all come back when the game ends.
 
 # Each background part runs in its own process group, so Ctrl+C here only reaches the
 # control panel, and each part can be stopped cleanly afterwards
@@ -56,6 +60,7 @@ GROUPS_TO_STOP=()
 # terminal), forced after 10 seconds
 stop_all() {
   echo "Stopping everything ..."
+  "$HERE/vision.sh" stop
   for group in "${GROUPS_TO_STOP[@]}"; do
     kill -INT -- -"$group" 2>/dev/null
   done
@@ -86,19 +91,12 @@ else
 fi
 GROUPS_TO_STOP+=($!)
 
-# 2. The camera and detection
+# 2. The camera and detection (vision.sh: the panel stops them during games)
 if [ "$CAMERA" = true ]; then
-  echo "Starting the camera ...   log: /tmp/robo_camera.log"
-  ros2 run usb_cam usb_cam_node_exe --ros-args -p video_device:=/dev/video0 \
-    -p image_width:=640 -p image_height:=480 -p pixel_format:=mjpeg2rgb \
-    -p framerate:=30.0 > /tmp/robo_camera.log 2>&1 &
-  GROUPS_TO_STOP+=($!)
-
-  echo "Starting detection (YOLO) ...   log: /tmp/robo_detect.log"
-  DETECT_ARGS+=(--no-window)  # the video shows in the control panel instead
-  PYTHONUNBUFFERED=1 python3 "$REPO/perception/detect.py" "${DETECT_ARGS[@]}" \
-    > /tmp/robo_detect.log 2>&1 &
-  GROUPS_TO_STOP+=($!)
+  "$HERE/vision.sh" start "${DETECT_ARGS[@]}"   # the video shows in the control panel
+else
+  "$HERE/vision.sh" stop
+  rm -f /tmp/robo_vision.args                   # nothing to bring back after a game
 fi
 
 # 3. The control panel (waits for the arm, then opens)

@@ -1,5 +1,5 @@
 """
-Robo's control panel, in two tabs:
+Robo's control panel, in three tabs:
 
   Robo                  gestures and the gripper, the camera view with YOLO's boxes and
                         the camera greeting, and talking with Robo (once, or live)
@@ -7,6 +7,9 @@ Robo's control panel, in two tabs:
                         save it with a name, and play, edit or delete saved moves.
                         Camera greetings pause while this tab is open, so the arm stays
                         where you put it.
+  Games                 Puppet Master, Ball Carry and Chocolate Catcher (game/). While a
+                        game runs, the camera, detection and voice are switched off, so the
+                        game has the camera and the whole GPU; they come back afterwards.
 
 Run it while the arm (or the simulation) is launched (see README.md):
     python3 gui.py
@@ -23,8 +26,10 @@ Options:
 
 import argparse
 import math
+import os
 import queue
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -53,11 +58,28 @@ from greet import GreetDecider
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "voice"))
 from robo_voice import GREETING, RoboVoice, choose_gesture, is_goodbye  # noqa: E402
 
+REPO = Path(__file__).resolve().parent.parent
+VISION = str(REPO / "launch" / "vision.sh")   # starts / stops the camera and detection
+GAME_DIR = REPO / "game"
+# The games need MediaPipe, which lives in its own environment (README, "Puppet Master")
+GAME_PYTHON = os.path.expanduser("~/game_venv/bin/python")
+if not os.path.exists(GAME_PYTHON):
+    GAME_PYTHON = sys.executable
+GAMES = [  # name, file, what it is
+    ("Puppet Master", "puppet_master.py",
+     "Your hand moves Robo. Make a fist to whack the lit target. Combos, ranks and a top 10."),
+    ("Ball Carry", "ball_carry.py",
+     "Carry all 5 balls from the left side to the right side. The fastest time wins."),
+    ("Chocolate Catcher", "claw_machine.py",
+     "A claw machine: grab a chocolate and drop it in the basket in time to win it."),
+]
+
 JOINT_NAMES = ["Base", "Shoulder", "Elbow", "Wrist"]
 VIDEO_SIZE = (480, 360)  # the camera view, in pixels
 NO_VIDEO_AFTER = 2.0     # seconds without video before saying "Camera not connected"
 CAMERA_START_TIME = 20.0 # at startup, wait this long for detection to load first
 ONCE_TIMEOUT = 10        # seconds "Talk once" waits for you to start speaking
+GAME_CAMERA = "Camera paused:\nthe game is using it"
 
 # ---------- Look: Texas State maroon and gold ----------
 MAROON, MAROON_DARK = "#501214", "#3a0d0f"
@@ -137,6 +159,7 @@ class App:
         self.loading = False           # voice models are loading
         self.stop_voice = threading.Event()
         self.live = False
+        self.game = None               # the game being played: {"name", "proc", "vision"}
 
         # Camera greeting: /person_detected comes from perception/detect.py
         self.last_person = None        # when a person was last seen
@@ -160,10 +183,13 @@ class App:
         self.tabs.pack(fill="both", expand=True, padx=8, pady=(0, 10))
         self.main_tab = tk.Frame(self.tabs, bg=PAGE)
         self.build_tab = tk.Frame(self.tabs, bg=PAGE)
+        self.games_tab = tk.Frame(self.tabs, bg=PAGE)
         self.tabs.add(self.main_tab, text="  Robo  ")
         self.tabs.add(self.build_tab, text="  Build your own move  ")
+        self.tabs.add(self.games_tab, text="  Games  ")
         self.build_main_tab(self.main_tab)
         self.build_builder_tab(self.build_tab)
+        self.build_games_tab(self.games_tab)
         root.protocol("WM_DELETE_WINDOW", self.quit)
 
         # Get the voice ready right away: speaking first (a few seconds, so greetings can
@@ -317,6 +343,7 @@ class App:
         self.check_greeting()
         self.show_video()
         self.publish_busy()
+        self.check_game()
         self.next_spin = self.root.after(50, self.spin)
 
     def publish_busy(self):
@@ -357,8 +384,9 @@ class App:
         """Start a gesture. It plays step by step while the window keeps running (camera,
         buttons), so the window never freezes. Gestures can't overlap: while one plays,
         another is refused. when_done() is called once it has finished (or was refused)."""
-        if self.moving:
-            self.say("Wait for the current move to finish", error=True)
+        if self.moving or self.game:
+            self.say("A game is using the arm" if self.game else
+                     "Wait for the current move to finish", error=True)
             if when_done:
                 when_done()
             return
@@ -415,12 +443,18 @@ class App:
 
     def nudge(self, joint, direction):
         """A joint button: move one joint a little (not while a gesture is playing)."""
+        if self.game:
+            self.say("A game is using the arm", error=True)
+            return
         if self.moving:
             self.say("Wait for the current move to finish", error=True)
             return
         jog(self.node, joint, direction)
 
     def gripper(self, name, position):
+        if self.game:
+            self.say("A game is using the arm", error=True)
+            return
         self.say(f"Gripper {name}")
         move_gripper(self.node, position)
 
@@ -604,7 +638,9 @@ class App:
         self.transcript.config(state="disabled")
 
     def talk_once(self):
-        if not self.voice_busy:
+        if self.game:
+            self.voice_says("The voice is off while a game is running.", True)
+        elif not self.voice_busy:
             self.with_voice_loaded(lambda: self.start_voice(live=False))
 
     def toggle_live(self):
@@ -613,6 +649,8 @@ class App:
             self.robo.stop_talking()
             self.live_button.config(text="Live: OFF")
             self.voice_says("Stopping ...")
+        elif self.game:
+            self.voice_says("The voice is off while a game is running.", True)
         elif not self.voice_busy:
             self.with_voice_loaded(lambda: self.start_voice(live=True))
 
@@ -729,6 +767,116 @@ class App:
                                                        "Stopping")):
             self.voice_says("Voice ready. Click Talk once, or turn Live on.")
 
+    # ================= Games =================
+
+    def build_games_tab(self, tab):
+        intro = card(tab, "Games",
+                     "Play with Robo using your hand in front of the camera. While a game "
+                     "runs, the camera view, detection and voice are switched off, so the "
+                     "game has the camera and the whole GPU. They come back on their own "
+                     "when the game ends (close its window, or press Esc).")
+        intro.master.pack_configure(fill="x")
+        row = tk.Frame(tab, bg=PAGE)
+        row.pack(fill="x")
+        self.game_buttons = []
+        for name, script, what in GAMES:
+            inside = card(row, name)
+            inside.master.pack_configure(side="left", fill="y", anchor="n")
+            text(inside, what, wraplength=300, justify="left").pack(anchor="w", pady=(0, 12))
+            play = button(inside, f"Play {name}",
+                          lambda n=name, f=script: self.start_game(n, f), kind="primary")
+            play.pack(anchor="w")
+            self.game_buttons.append(play)
+
+        inside = card(tab, "Options")
+        inside.master.pack_configure(fill="x")
+        self.game_keyboard = tk.BooleanVar(value=False)
+        self.game_fullscreen = tk.BooleanVar(value=False)
+        for words, variable in (("Control with the keyboard instead of your hand "
+                                 "(W A S D, and Space)", self.game_keyboard),
+                                ("Full screen", self.game_fullscreen)):
+            tk.Checkbutton(inside, text=words, variable=variable, font=FONT, bg=CARD,
+                           activebackground=CARD, fg=TEXT, selectcolor=CARD).pack(anchor="w")
+        row = tk.Frame(inside, bg=CARD)
+        row.pack(fill="x", pady=(12, 0))
+        self.stop_game_button = button(row, "Stop the game", self.stop_game, kind="danger")
+        self.stop_game_button.pack(side="left")
+        self.stop_game_button.config(state="disabled")
+        self.game_status = text(row, "No game running.", muted=True)
+        self.game_status.pack(side="left", padx=12)
+
+    def start_game(self, name, script):
+        """Free the camera and the GPU, then start the game in its own window."""
+        if self.game:
+            return
+        if self.voice_busy:
+            self.say("Stop talking with Robo first (Live off)", error=True)
+            return
+        if self.loading:
+            self.say("The voice is still loading: try again in a moment", error=True)
+            return
+        if self.moving:
+            self.say("Wait for the current move to finish", error=True)
+            return
+        self.game = {"name": name, "proc": None, "vision": False}
+        for play in self.game_buttons:
+            play.config(state="disabled")
+        self.say(f"Starting {name} ...")
+        self.game_status.config(text="Switching off the camera, detection and voice ...")
+        options = (["--keyboard"] if self.game_keyboard.get() else []) + \
+            (["--fullscreen"] if self.game_fullscreen.get() else [])
+
+        def free_then_start():
+            vision = subprocess.run([VISION, "running"]).returncode == 0
+            if vision:
+                subprocess.run([VISION, "stop"], capture_output=True)
+            self.robo.unload()
+            self.post(lambda: self.launch_game(name, script, options, vision))
+
+        threading.Thread(target=free_then_start, daemon=True).start()
+
+    def launch_game(self, name, script, options, vision):
+        self.game["vision"] = vision
+        try:
+            self.game["proc"] = subprocess.Popen([GAME_PYTHON, script] + options, cwd=GAME_DIR)
+        except OSError as error:
+            self.game_over(f"Couldn't start {name}: {error}")
+            return
+        self.say(f"Playing {name}")
+        self.game_status.config(text=f"Playing {name}. Close its window (or Esc) to come back.")
+        self.stop_game_button.config(state="normal")
+
+    def stop_game(self):
+        proc = self.game and self.game.get("proc")
+        if proc and proc.poll() is None:
+            proc.send_signal(signal.SIGINT)    # the game sends the arm home and closes
+            self.game_status.config(text="Stopping the game ...")
+
+    def check_game(self):
+        """Called every 50 ms: when the game has ended, switch everything back on."""
+        proc = self.game and self.game.get("proc")
+        if proc and proc.poll() is not None:
+            self.game_over(None if proc.returncode in (0, -signal.SIGINT) else
+                           f"The game stopped with an error (code {proc.returncode}); "
+                           "see the terminal")
+
+    def game_over(self, error=None):
+        vision = self.game["vision"]
+        self.game = None
+        self.stop_game_button.config(state="disabled")
+        for play in self.game_buttons:
+            play.config(state="normal")
+        self.game_status.config(text=error or "No game running.", fg=RED if error else MUTED)
+        self.say(error or "Ready", error=bool(error))
+        if vision:
+            # Detection takes a while to load again: give it time before "not connected"
+            self.started_at, self.video_at, self.photo = time.monotonic(), None, None
+            self.video.config(image="", text="Starting the camera ...")
+            threading.Thread(target=lambda: subprocess.run([VISION, "resume"],
+                                                           capture_output=True),
+                             daemon=True).start()
+        self.with_voice_loaded(lambda: None)   # the voice loads again in the background
+
     # ================= Camera and greeting =================
 
     def build_camera(self, parent):
@@ -762,6 +910,11 @@ class App:
     def show_video(self):
         """Show the newest camera frame, or say the camera isn't connected."""
         now = time.monotonic()
+        if self.game:
+            if self.photo is not None or self.video.cget("text") != GAME_CAMERA:
+                self.photo = None
+                self.video.config(image="", text=GAME_CAMERA)
+            return
         if self.video_msg is not None and cv2 is not None:
             msg, self.video_msg = self.video_msg, None
             image = cv2.imdecode(np.frombuffer(bytes(msg.data), np.uint8), cv2.IMREAD_COLOR)
@@ -787,6 +940,10 @@ class App:
 
     def check_greeting(self):
         now = time.monotonic()
+        if self.game:
+            self.decider.greeted(now)
+            self.camera_status.config(text="Greeting paused: a game is running")
+            return
         if self.voice_busy or self.building():
             # Talking with someone, or building a move: no greetings. Count it as a
             # greeting, so whoever is there isn't greeted the moment it ends.
@@ -812,6 +969,12 @@ class App:
         self.play("wave", GESTURES["w"][1])
 
     def quit(self):
+        if self.game and self.game.get("proc") and self.game["proc"].poll() is None:
+            self.game["proc"].send_signal(signal.SIGINT)   # the game sends the arm home
+            try:
+                self.game["proc"].wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self.game["proc"].kill()
         self.root.after_cancel(self.next_spin)
         self.stop_voice.set()
         self.robo.close()
