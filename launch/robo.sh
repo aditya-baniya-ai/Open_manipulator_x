@@ -46,9 +46,14 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-# Two arm programs at once fight each other and the arm shakes, so refuse to start a second
-if ros2 node list 2>/dev/null | grep -q "^/controller_manager$"; then
-  echo "An arm (real or simulated) is already running. Stop it first:"
+# Two arm programs at once fight each other (and only one can open the OpenCR's USB
+# port), so refuse to start a second. Look for the arm's programs themselves, which
+# also finds one that's still starting up (ROS's node list doesn't show those yet),
+# like the "Robo" window that autostart.sh opens at login.
+if pgrep -f "open_manipulator_x_bringup|ros2_control_node" > /dev/null ||
+   ros2 node list 2>/dev/null | grep -q "^/controller_manager$"; then
+  echo "An arm (real or simulated) is already running, maybe in the \"Robo\" window"
+  echo "that autostart opens at login. Use that one, or stop it first:"
   echo "  $HERE/stop.sh"
   echo "If it's the real arm, hold it first: it may go limp."
   exit 1
