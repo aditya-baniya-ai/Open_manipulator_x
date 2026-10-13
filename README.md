@@ -383,6 +383,14 @@ Robo also **remembers answers** to recent and repeated questions, together with 
 
 Everything gets ready by itself when the panel opens: the speaking voice first (a few seconds, so greetings talk right away), then listening and the LLM, which are also warmed up so the first answer is quick (about 20 to 30 seconds in total; please stay quiet near the end while it measures the room's noise). After that, Talk once and Live start listening immediately. If you click while it's still getting ready, it starts listening as soon as it's ready. The LLM stays loaded on the GPU while the panel is open. The volume buttons change the speaker until the next reboot; to keep a level after rebooting, run `sudo alsactl store`.
 
+**Start it automatically** when the Jetson starts: Robo then opens by itself after you log in to the desktop, in a terminal window called "Robo" (it waits for the arm if its 12 V power isn't on yet):
+
+```bash
+~/Documents/Open_manipulator_x/launch/autostart.sh on
+```
+
+To turn it off again: `~/Documents/Open_manipulator_x/launch/autostart.sh off` (`status` tells you whether it's on). It only adds the file `~/.config/autostart/robo.desktop`, and `off` deletes it. To have it start with no one logging in, also turn on automatic login in Settings > Users > Unlock > Automatic Login (then anyone who switches the Jetson on gets the desktop without a password).
+
 **To stop:** hold the real arm, then click **Quit** (or press Ctrl+C in the terminal). Everything stops. If something is left running, run `~/Documents/Open_manipulator_x/launch/stop.sh`.
 
 The sections below start each part on its own, which is useful for testing one thing at a time.
@@ -1062,6 +1070,7 @@ launch/
   gestures.sh          starts the arm (real or --sim) and the controls (keys, or --gui) together
   robo.sh              starts EVERYTHING: arm, camera, detection and the control panel
   vision.sh            starts / stops the camera and detection (the panel stops them during games)
+  autostart.sh         on / off: start Robo by itself when you log in to the Jetson
   game.sh              starts the arm and a game (Puppet Master, --balls, --claw)
   stop.sh              stops every robot program (use when something is left running)
 dependencies.repos     list of ROBOTIS code to download (used in Step 5)
