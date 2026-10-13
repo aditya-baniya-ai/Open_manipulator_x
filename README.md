@@ -314,6 +314,32 @@ python3 -m piper -m ~/piper_voices/en_US-lessac-medium.onnx -f ~/hello.wav -- 'H
 aplay -D plughw:CARD=Device,DEV=0 ~/hello.wav
 ```
 
+### Step 13. Install Ollama and Robo's LLM (its "brain" for talking)
+
+Ollama runs the LLM on the Jetson's GPU. Its installer detects the Jetson and sets itself up to start at every boot:
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+Download Robo's model (about 2 GB):
+
+```bash
+ollama pull llama3.2:3b
+```
+
+Test it (the first answer takes a little longer while the model loads):
+
+```bash
+ollama run llama3.2:3b "Say hello in one sentence."
+```
+
+### Step 14. Optional: the games, and faster detection
+
+- **The games** need MediaPipe: step 2 of [Puppet Master](#puppet-master-game) (installs it in its own environment, `~/game_venv`).
+- **Faster detection** (TensorRT models, made once on each Jetson): see [Faster detection](#faster-detection-running-everything-together), and for the games the YOLO pose model in step 4 of [Puppet Master](#puppet-master-game).
+- **Full speed** for games and talking (until the next reboot): `sudo jetson_clocks`.
+
 Setup is done.
 
 ---
