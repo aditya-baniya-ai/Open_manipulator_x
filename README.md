@@ -946,7 +946,7 @@ A **claw machine** with Robo as the claw. **You only win the chocolates you get 
 | Open your hand | the claw opens and the chocolate drops |
 
 - The claw **glides 110 mm above the table**, so it passes over the basket's rim (keep the basket under about 7 cm tall) and over the other chocolates; only a fist takes it down. Change `HOVER` at the top of `game/claw_machine.py` if your basket is taller or shorter.
-- **5 lives, shown as hearts.** **Every fist uses one** (even a fist by mistake, over the basket or anywhere) and **starts the timer** right then: you have **10 seconds** to get the chocolate over the **basket** and open your hand. The used heart pops like a balloon. While carrying, the claw moves a bit slower (150 mm/s instead of 250).
+- **5 lives, shown as hearts.** **Every fist uses one** (even a fist by mistake, over the basket or anywhere) and **starts the timer** right then: you have **10 seconds** to get the chocolate over the **basket** and open your hand. The used heart pops like a balloon. While carrying, the claw moves about half as fast (gliding at 90 mm/s instead of 250, joints at 0.8 rad/s instead of 1.5), until the chocolate is let go.
 - The claw **only opens when you open your hand**, never by itself. The exceptions: the 10 seconds or the game's 2 minutes run out.
 - **In the basket = open your hand while the yellow dot (the middle of your hand) is inside the green BASKET square** (the square lights up when the dot is inside). The claw trails your hand a little, so it first finishes moving into the basket, then opens there. The most chocolates wins.
 - **The whole game lasts 2 minutes** (the clock at the top), or until the 5 lives are used. If you're still carrying when the clock runs out, the claw lets go.

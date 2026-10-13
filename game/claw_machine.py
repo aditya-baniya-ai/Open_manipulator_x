@@ -192,7 +192,6 @@ class Game:
             target = (min(bu + half, max(bu - half, r["point"][0])),
                       min(bv + half, max(bv - half, r["point"][1])))
             r["phase"], r["phase_at"], r["target"] = "to_basket", time.monotonic(), target
-            self.robot.glide = arm_link.MAX_GLIDE       # catch up at the normal speed
         else:
             self.drop("opened")
 
@@ -202,7 +201,7 @@ class Game:
         won = why == "basket"
         held = getattr(self.robot, "held", None)
         self.robot.open_here()
-        self.robot.glide = arm_link.MAX_GLIDE
+        self.robot.carrying(False)               # back to the normal speed
         self.sound.timer(None)
         r["results"].append(won)
         if won:
@@ -264,7 +263,7 @@ class Game:
                     self.let_go()                # opened during the grab
                 else:
                     r["phase"] = "carry"                        # the timer keeps going
-                    self.robot.glide = arm_link.CARRY_GLIDE     # a bit slower now
+                    self.robot.carrying(True)                   # slower now
                     self.say("Got it! To the basket!")
         elif r["phase"] == "carry":
             self.sound.timer(self.carry_left() / CARRY_TIME)   # ticks faster as time runs out
@@ -279,7 +278,7 @@ class Game:
             u, v, _ = self.robot.gripper_area()
             if self.hand_in_basket((u, v), share=0.8):
                 self.drop("basket")
-            elif time.monotonic() - r["phase_at"] > 6.0:
+            elif time.monotonic() - r["phase_at"] > 12.0:
                 self.drop("opened")              # couldn't get there: not in the basket
         elif r["phase"] == "dropping":
             if time.monotonic() - r["phase_at"] > arm_link.GRIPPER_WAIT:

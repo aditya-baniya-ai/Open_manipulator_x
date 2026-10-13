@@ -29,7 +29,8 @@ NEAR, FAR = 80.0, 220.0   # mm: closest and farthest the gripper goes from the b
 SIDE = math.radians(75)  # the furthest the base turns left or right
 MAX_SPEED = 1.5          # rad/s: fastest any joint moves while following the hand
 MAX_GLIDE = 250.0        # mm/s: fastest the gripper slides across the table
-CARRY_GLIDE = 150.0      # mm/s: the same while carrying something (games slow it down)
+CARRY_GLIDE = 90.0       # mm/s: while carrying something (games slow it down) ...
+CARRY_SPEED = 0.8        # rad/s: ... and the fastest any joint moves then
 WHACK_TIME = 0.30        # seconds down, and the same back up
 GRAB_HEIGHT = 15.0       # mm: fingertips this high to grab a ball off the table
 RELEASE_HEIGHT = 40.0    # mm: fingertips this high to let go of a ball
@@ -57,9 +58,9 @@ def point_to_area(x, y):
     return 0.5 + angle / (2 * SIDE), (FAR - reach) / (FAR - NEAR)
 
 
-def limit_step(start, goal, seconds):
-    """Move from start toward goal, no joint faster than MAX_SPEED."""
-    most = MAX_SPEED * seconds
+def limit_step(start, goal, seconds, speed=MAX_SPEED):
+    """Move from start toward goal, no joint faster than speed (rad/s)."""
+    most = speed * seconds
     return [s + max(-most, min(most, g - s)) for s, g in zip(start, goal)]
 
 
@@ -71,6 +72,7 @@ class ArmBase:
         self.command = None          # joint angles last sent
         self.aim = None              # the point (x, y mm) the gripper is sliding to
         self.glide = MAX_GLIDE       # mm/s: the sliding speed right now
+        self.speed = MAX_SPEED       # rad/s: the fastest joint speed right now
         self.hover = HOVER_HEIGHT    # mm: the gliding height
         self.whack_started = None    # time the current whack began, or None
         self.whack_spot = None       # where the gripper was when it whacked (x, y)
@@ -92,6 +94,10 @@ class ArmBase:
             if joints is not None:
                 return joints
         return None
+
+    def carrying(self, on):
+        """Slower while carrying something (on), back to normal speed after."""
+        self.glide, self.speed = (CARRY_GLIDE, CARRY_SPEED) if on else (MAX_GLIDE, MAX_SPEED)
 
     def busy(self):
         """Whacking, grabbing or releasing: the arm doesn't follow the hand meanwhile."""
@@ -121,11 +127,11 @@ class ArmBase:
             if goal is None:
                 return
             fastest = max(abs(g - c) for g, c in zip(goal, self.command)) / max(seconds, 1e-3)
-            if fastest <= MAX_SPEED:
+            if fastest <= self.speed:
                 break
-            share *= 0.95 * MAX_SPEED / fastest
+            share *= 0.95 * self.speed / fastest
         self.aim = aim
-        self.command = limit_step(self.command, goal, seconds)   # (a last safety net)
+        self.command = limit_step(self.command, goal, seconds, self.speed)   # (safety net)
         self.send([self.command], [max(0.1, seconds * 2)])
 
     def whack(self):
