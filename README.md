@@ -1037,6 +1037,7 @@ docs/
   hardware.md          parts list, servo IDs, wiring
   setup_jetson.md      setup notes: why each step is needed, and progress
   troubleshooting.md   problems we hit and how we fixed them
+  project_summary.md   what was built, the Jetson setup, and notes for new projects on the same robot
   OpenMANIPULATOR-X_Quick_Setup.docx   one-page guide for the Arduino test
 firmware/
   README.md            how to upload code to the OpenCR board
