@@ -261,6 +261,9 @@ print('Heard:', m.transcribe('$HOME/mic_test.wav', fp16=True)['text'])
 
 ### Step 11. Set up the speaker
 
+Robo picks its speaker by itself every time it starts: the **USB speaker** if it's plugged in, otherwise the **desktop's sound output** (whatever Settings > Sound is set to, for example the monitor's speakers over HDMI or DisplayPort). To force one, set `ROBO_SPEAKER` in `~/.bashrc` (for example `export ROBO_SPEAKER=plughw:CARD=HDA,DEV=3`; `aplay -l` lists them). To see which one it will use: `python3 ~/Documents/Open_manipulator_x/voice/speaker.py`.
+
+
 Plug a USB speaker into the Jetson. Check it's found (ours is listed as `USB PnP Audio Device`, card name `Device`):
 
 ```bash

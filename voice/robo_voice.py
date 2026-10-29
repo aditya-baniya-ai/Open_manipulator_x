@@ -29,11 +29,12 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import listen  # noqa: E402
 from listen import find_gesture, loudness, start_mic  # noqa: E402
+from speaker import DESKTOP, find_speaker  # noqa: E402
 
 GREETING = "Hello! I'm Robo. Welcome to the Ingram Hall Makerspace!"
-# The speaker: the USB speaker unless ROBO_SPEAKER says otherwise (e.g. the monitor's
-# speakers: export ROBO_SPEAKER=plughw:CARD=HDA,DEV=3 in ~/.bashrc; list them with aplay -l)
-SPEAKER = os.environ.get("ROBO_SPEAKER", "plughw:CARD=Device,DEV=0")
+# The speaker, chosen at start (speaker.py): ROBO_SPEAKER if set, else the USB speaker if
+# it's plugged in, else the desktop's sound output (like the monitor's speakers)
+SPEAKER = find_speaker()
 # Its volume control (see: amixer -c Device scontrols); ROBO_VOLUME_CONTROL to change it
 VOLUME_CONTROL = os.environ.get("ROBO_VOLUME_CONTROL", "Speaker")
 DEFAULT_VOICE = str(Path.home() / "piper_voices/en_US-lessac-medium.onnx")
@@ -609,9 +610,12 @@ class RoboVoice:
 
     def volume(self, change=None):
         """The speaker volume in percent (or None if unknown). change=+5 or -5 adjusts it."""
-        if self.card is None:
+        if self.speaker == DESKTOP:      # the desktop's output: its main volume
+            command = ["amixer", "-D", "pulse", "sset" if change else "sget", "Master"]
+        elif self.card is None:
             return None
-        command = ["amixer", "-c", self.card, "sset" if change else "sget", VOLUME_CONTROL]
+        else:
+            command = ["amixer", "-c", self.card, "sset" if change else "sget", VOLUME_CONTROL]
         if change:
             command += [f"{abs(change)}%{'+' if change > 0 else '-'}", "unmute"]
         try:
