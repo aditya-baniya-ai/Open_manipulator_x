@@ -18,7 +18,8 @@ Options:
     --model NAME       Ollama model (default llama3.2:3b)
     --whisper SIZE     Whisper model: base (faster) or small (more accurate, default)
     --voice PATH       Piper voice (default ~/piper_voices/en_US-lessac-medium.onnx)
-    --speaker DEVICE   speaker (default plughw:CARD=Device,DEV=0, the USB speaker)
+    --speaker DEVICE   speaker (default: ROBO_SPEAKER if set, else the USB speaker,
+                       plughw:CARD=Device,DEV=0)
     --mic DEVICE       microphone (default plughw:CARD=BRIO,DEV=0)
 
 Press Enter while Robo is talking to cut it off.
@@ -26,6 +27,7 @@ Say "goodbye" to stop, or press Ctrl+C.
 """
 
 import argparse
+import os
 import sys
 import threading
 import time
@@ -54,7 +56,8 @@ def main():
     parser.add_argument("--whisper", default="small",
                         help="Whisper model: base (faster) or small (more accurate)")
     parser.add_argument("--voice", default=DEFAULT_VOICE, help="Piper voice file")
-    parser.add_argument("--speaker", default="plughw:CARD=Device,DEV=0", help="speaker device")
+    parser.add_argument("--speaker", default=os.environ.get("ROBO_SPEAKER",
+                        "plughw:CARD=Device,DEV=0"), help="speaker device")
     parser.add_argument("--mic", default="plughw:CARD=BRIO,DEV=0", help="microphone device")
     parser.add_argument("--threshold", type=float,
                         help="loudness that counts as speech (default: measured)")

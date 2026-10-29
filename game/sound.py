@@ -17,6 +17,7 @@ Hear them all on the Jetson:  python3 sound.py
 """
 
 import math
+import os
 import shutil
 import subprocess
 import threading
@@ -26,7 +27,8 @@ import numpy as np
 
 RATE = 22050            # samples a second (plenty for chiptune, light on the CPU)
 CHUNK = 512             # samples mixed at a time (about 23 ms)
-DEFAULT_SPEAKER = "plughw:CARD=Device,DEV=0"   # the USB speaker (as Robo's voice uses)
+# The same speaker as Robo's voice: the USB speaker, or ROBO_SPEAKER if it's set
+DEFAULT_SPEAKER = os.environ.get("ROBO_SPEAKER", "plughw:CARD=Device,DEV=0")
 MUSIC_VOLUME = 0.30
 MUSIC_UNDER_TIMER = 0.12   # quieter music while the timer ticks
 

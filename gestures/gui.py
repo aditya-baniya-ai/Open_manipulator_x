@@ -615,7 +615,8 @@ class App:
         percent = self.robo.volume(step)
         self.show_volume(percent)
         if percent is None:
-            self.say("Couldn't change the speaker volume (is the USB speaker plugged in?)",
+            self.say("Couldn't change the volume (speaker unplugged, or it has no volume "
+                     "control: use the monitor's buttons)",
                      error=True)
 
     def voice_says(self, words, error=False):

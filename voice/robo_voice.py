@@ -31,7 +31,11 @@ import listen  # noqa: E402
 from listen import find_gesture, loudness, start_mic  # noqa: E402
 
 GREETING = "Hello! I'm Robo. Welcome to the Ingram Hall Makerspace!"
-VOLUME_CONTROL = "Speaker"  # the speaker's volume control (see: amixer -c Device scontrols)
+# The speaker: the USB speaker unless ROBO_SPEAKER says otherwise (e.g. the monitor's
+# speakers: export ROBO_SPEAKER=plughw:CARD=HDA,DEV=3 in ~/.bashrc; list them with aplay -l)
+SPEAKER = os.environ.get("ROBO_SPEAKER", "plughw:CARD=Device,DEV=0")
+# Its volume control (see: amixer -c Device scontrols); ROBO_VOLUME_CONTROL to change it
+VOLUME_CONTROL = os.environ.get("ROBO_VOLUME_CONTROL", "Speaker")
 DEFAULT_VOICE = str(Path.home() / "piper_voices/en_US-lessac-medium.onnx")
 
 OLLAMA_URL = "http://localhost:11434/api/chat"
@@ -292,7 +296,7 @@ class RoboVoice:
     """
 
     def __init__(self, model="llama3.2:3b", whisper_size="small", voice=DEFAULT_VOICE,
-                 speaker="plughw:CARD=Device,DEV=0", mic="plughw:CARD=BRIO,DEV=0",
+                 speaker=SPEAKER, mic="plughw:CARD=BRIO,DEV=0",
                  threshold=None):
         self.model, self.whisper_size, self.voice_path = model, whisper_size, voice
         self.speaker, self.mic, self.threshold = speaker, mic, threshold
