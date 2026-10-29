@@ -392,7 +392,13 @@ Everything gets ready by itself when the panel opens: the speaking voice first (
 ~/Documents/Open_manipulator_x/launch/autostart.sh on
 ```
 
-To turn it off again: `~/Documents/Open_manipulator_x/launch/autostart.sh off` (`status` tells you whether it's on). It only adds the file `~/.config/autostart/robo.desktop`, and `off` deletes it. To have it start with no one logging in, also turn on automatic login in Settings > Users > Unlock > Automatic Login (then anyone who switches the Jetson on gets the desktop without a password).
+Or start **straight into one game**, full screen, for player after player (after each round it's back at the game's title screen; Esc closes it):
+
+```bash
+~/Documents/Open_manipulator_x/launch/autostart.sh on claw
+```
+
+(`claw` = Chocolate Catcher, `balls` = Ball Carry, `puppet` = Puppet Master.) To turn it off again: `~/Documents/Open_manipulator_x/launch/autostart.sh off` (`status` tells you whether it's on, and what starts). It only adds the file `~/.config/autostart/robo.desktop`, and `off` deletes it. To have it start with no one logging in, also turn on automatic login in Settings > Users > Unlock > Automatic Login (then anyone who switches the Jetson on gets the desktop without a password).
 
 **To stop:** hold the real arm, then click **Quit** (or press Ctrl+C in the terminal). Everything stops. If something is left running, run `~/Documents/Open_manipulator_x/launch/stop.sh`.
 
