@@ -1027,6 +1027,12 @@ Try it without the robot first, then with the arm:
 ~/Documents/Open_manipulator_x/launch/hand.sh
 ```
 
+**If it says the arm is outside its safe range when it isn't** (for example the base at +353° while it faces forward): that joint's servo is counting one whole turn too many. `hand.sh` fixes this by itself before the arm starts (`launch/fix_turns.py`): it changes that servo's Homing Offset by whole turns, so +353° reads −7°. The joint doesn't move and where it points doesn't change, only the number. The servo remembers it, and the old value is saved in `~/robo_servo_backup.txt`. To only look at the angles without changing anything (with the arm program not running):
+
+```bash
+python3 ~/Documents/Open_manipulator_x/launch/fix_turns.py --check
+```
+
 `--fullscreen` fills the screen, `--keyboard` uses `W` `A` `S` `D` and `Space` instead of the camera, `--sim` uses the simulated arm. The glide height (`HOVER`) is at the top of `game/hand_control.py`.
 
 **Start it automatically** every time the Jetson starts (full screen, after you log in):
@@ -1108,6 +1114,7 @@ launch/
   autostart.sh         on / off: start Robo by itself when you log in to the Jetson
   game.sh              starts the arm and a game (Puppet Master, --balls, --claw, --hand)
   hand.sh              starts the arm and hand control (no game)
+  fix_turns.py         fixes a joint that reads a whole turn off (hand.sh runs it)
   stop.sh              stops every robot program (use when something is left running)
 dependencies.repos     list of ROBOTIS code to download (used in Step 5)
 ```

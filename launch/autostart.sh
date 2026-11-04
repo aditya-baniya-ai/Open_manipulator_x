@@ -79,11 +79,12 @@ EOF
     fi
     if [ "$WHAT" = panel ]; then
       "$HERE/robo.sh"
+    elif [ "$WHAT" = hand ]; then
+      "$HERE/hand.sh" --fullscreen   # also fixes a joint that reads a whole turn off
     else
       GAME=()
       [ "$WHAT" = claw ] && GAME=(--claw)
       [ "$WHAT" = balls ] && GAME=(--balls)
-      [ "$WHAT" = hand ] && GAME=(--hand)
       # One game, full screen, for player after player (it returns to its title screen
       # after each round). Not restarted when it closes: that would restart the arm,
       # and the arm goes limp in between
