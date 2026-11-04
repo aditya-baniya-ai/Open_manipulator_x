@@ -7,6 +7,7 @@
 #   ~/Documents/Open_manipulator_x/launch/game.sh --setup      place the target stickers
 #   ~/Documents/Open_manipulator_x/launch/game.sh --balls      Ball Carry instead
 #   ~/Documents/Open_manipulator_x/launch/game.sh --claw       Chocolate Catcher (claw machine)
+#   ~/Documents/Open_manipulator_x/launch/game.sh --hand       hand control, no game (hand.sh)
 #
 # Other options go to the game, e.g. --fullscreen, --tracker yolo, --camera /dev/video2,
 # --keyboard (Ball Carry and Chocolate Catcher: W A S D instead of your hand).
@@ -30,6 +31,7 @@ while [ $# -gt 0 ]; do
     --no-arm) NO_ARM=true; GAME_ARGS+=(--no-arm) ;;
     --balls) GAME=ball_carry.py ;;
     --claw) GAME=claw_machine.py ;;
+    --hand) GAME=hand_control.py ;;
     *) GAME_ARGS+=("$1") ;;
   esac
   shift

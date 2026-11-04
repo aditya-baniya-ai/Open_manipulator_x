@@ -398,7 +398,7 @@ Or start **straight into one game**, full screen, for player after player (after
 ~/Documents/Open_manipulator_x/launch/autostart.sh on claw
 ```
 
-(`claw` = Chocolate Catcher, `balls` = Ball Carry, `puppet` = Puppet Master.) To turn it off again: `~/Documents/Open_manipulator_x/launch/autostart.sh off` (`status` tells you whether it's on, and what starts). It only adds the file `~/.config/autostart/robo.desktop`, and `off` deletes it. To have it start with no one logging in, also turn on automatic login in Settings > Users > Unlock > Automatic Login (then anyone who switches the Jetson on gets the desktop without a password).
+(`claw` = Chocolate Catcher, `balls` = Ball Carry, `puppet` = Puppet Master, `hand` = hand control with no game, see below.) To turn it off again: `~/Documents/Open_manipulator_x/launch/autostart.sh off` (`status` tells you whether it's on, and what starts). It only adds the file `~/.config/autostart/robo.desktop`, and `off` deletes it. To have it start with no one logging in, also turn on automatic login in Settings > Users > Unlock > Automatic Login (then anyone who switches the Jetson on gets the desktop without a password).
 
 **To stop:** hold the real arm, then click **Quit** (or press Ctrl+C in the terminal). Everything stops. If something is left running, run `~/Documents/Open_manipulator_x/launch/stop.sh`.
 
@@ -1013,6 +1013,30 @@ Try it without the robot, then play:
 
 `--keyboard`: `W` `A` `S` `D` move the claw (`W` toward you), `Space` is the fist (press once to grab and hold, again to drop). `--sim` uses the simulated arm. The grabs, the carry time and the basket position (`BASKET`) are at the top of `game/claw_machine.py`.
 
+### Hand control (no game)
+
+The Chocolate Catcher claw without the game: no timer, score or basket. A window shows the camera with your hand drawn on it, and the claw follows your hand. Move your hand to move the claw (up = toward you), **make a fist** to grab (the claw goes down, closes and comes back up), **keep the fist** to hold and carry (it moves slower), **open your hand** to let go. Esc closes it (hold the real arm first).
+
+Try it without the robot first, then with the arm:
+
+```bash
+~/Documents/Open_manipulator_x/launch/hand.sh --no-arm
+```
+
+```bash
+~/Documents/Open_manipulator_x/launch/hand.sh
+```
+
+`--fullscreen` fills the screen, `--keyboard` uses `W` `A` `S` `D` and `Space` instead of the camera, `--sim` uses the simulated arm. The glide height (`HOVER`) is at the top of `game/hand_control.py`.
+
+**Start it automatically** every time the Jetson starts (full screen, after you log in):
+
+```bash
+~/Documents/Open_manipulator_x/launch/autostart.sh on hand
+```
+
+Turn it off again with `~/Documents/Open_manipulator_x/launch/autostart.sh off`.
+
 ### Get the latest code
 
 ```bash
@@ -1067,6 +1091,7 @@ game/
   bench_tracking.py    compares the hand trackers' speed
   ball_carry.py        the Ball Carry game: carry the balls across, fastest time wins
   claw_machine.py      the Chocolate Catcher game: a claw machine with Robo as the claw
+  hand_control.py      hand control with no game: the claw follows your hand, a fist grabs
   sound.py             the games' music and sound effects (made in code)
 perception/
   detect.py            live object detection from the camera (YOLO / YOLO-World)
@@ -1081,7 +1106,8 @@ launch/
   robo.sh              starts EVERYTHING: arm, camera, detection and the control panel
   vision.sh            starts / stops the camera and detection (the panel stops them during games)
   autostart.sh         on / off: start Robo by itself when you log in to the Jetson
-  game.sh              starts the arm and a game (Puppet Master, --balls, --claw)
+  game.sh              starts the arm and a game (Puppet Master, --balls, --claw, --hand)
+  hand.sh              starts the arm and hand control (no game)
   stop.sh              stops every robot program (use when something is left running)
 dependencies.repos     list of ROBOTIS code to download (used in Step 5)
 ```

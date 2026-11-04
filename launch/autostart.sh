@@ -7,6 +7,7 @@
 #   ~/Documents/Open_manipulator_x/launch/autostart.sh on claw      Chocolate Catcher
 #   ~/Documents/Open_manipulator_x/launch/autostart.sh on balls     Ball Carry
 #   ~/Documents/Open_manipulator_x/launch/autostart.sh on puppet    Puppet Master
+#   ~/Documents/Open_manipulator_x/launch/autostart.sh on hand      hand control (no game)
 #   ~/Documents/Open_manipulator_x/launch/autostart.sh off          turn it off
 #   ~/Documents/Open_manipulator_x/launch/autostart.sh status       is it on, and what?
 #
@@ -28,6 +29,7 @@ describe() {
     claw) echo "Chocolate Catcher" ;;
     balls) echo "Ball Carry" ;;
     puppet) echo "Puppet Master" ;;
+    hand) echo "hand control" ;;
     *) echo "the control panel" ;;
   esac
 }
@@ -36,8 +38,8 @@ case "$1" in
   on)
     WHAT="${2:-panel}"
     case "$WHAT" in
-      panel|claw|balls|puppet) ;;
-      *) echo "Use: $0 on [claw | balls | puppet]   (nothing = the control panel)"; exit 1 ;;
+      panel|claw|balls|puppet|hand) ;;
+      *) echo "Use: $0 on [claw | balls | puppet | hand]   (nothing = the control panel)"; exit 1 ;;
     esac
     mkdir -p "$(dirname "$ENTRY")"
     cat > "$ENTRY" <<EOF
@@ -81,6 +83,7 @@ EOF
       GAME=()
       [ "$WHAT" = claw ] && GAME=(--claw)
       [ "$WHAT" = balls ] && GAME=(--balls)
+      [ "$WHAT" = hand ] && GAME=(--hand)
       # One game, full screen, for player after player (it returns to its title screen
       # after each round). Not restarted when it closes: that would restart the arm,
       # and the arm goes limp in between
@@ -90,7 +93,7 @@ EOF
     read -r -p "Robo has stopped. Press Enter to close this window." _
     ;;
   *)
-    echo "Use: $0 on [claw | balls | puppet] | off | status"
+    echo "Use: $0 on [claw | balls | puppet | hand] | off | status"
     exit 1
     ;;
 esac
